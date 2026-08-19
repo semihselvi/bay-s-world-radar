@@ -1,26 +1,46 @@
 {
-  "reddit": [
-    "r/IWantOut", "r/ExpatFIRE", "r/expats", "r/goldenvisa", "r/eupersonalfinance",
-    "r/cyprus", "r/montenegro", "r/RealEstate", "r/HousingUK", "r/FirstTimeHomeBuyer"
-  ],
+  "source_policy": {
+    "lead_sources": "User-generated public discussions only.",
+    "discovery_only": "Listings, portals, developer/agency pages and generic guides may discover communities but never qualify as buyer leads by themselves.",
+    "private_content": "Do not access private groups. Use public/indexed pages, previews, comments and references only.",
+    "freshness_hours": 24
+  },
+  "reddit": ["r/IWantOut","r/ExpatFIRE","r/expats","r/goldenvisa","r/eupersonalfinance","r/PortugalExpats","r/AmerExit","r/cyprus","r/montenegro","r/NetherlandsRealEstate","r/Germany","r/belgium","r/Kazakhstan","r/RealEstate","r/HousingUK","r/FirstTimeHomeBuyer"],
   "forums": [
-    "community.nomadgate.com", "www.expat.com", "www.expatforum.com", "forums.moneysavingexpert.com",
-    "forum-eu.com", "forum.awd.ru", "forum.pim.be", "community.finary.com", "investisseurs-heureux.fr",
-    "forum.finanzaonline.com", "auswandererforum.de", "wertpapier-forum.de", "allesamerika.com"
+    "https://community.nomadgate.com/","https://www.bogleheads.org/","https://www.expatforum.com/","https://www.expat.com/","https://www.property118.com/","https://www.housepricecrash.co.uk/","https://forums.moneysavingexpert.com/categories/house-buying-renting-selling","https://forum.completefrance.com/","https://forum-eu.com/","https://forum.awd.ru/viewforum.php?f=1391","https://forum.pim.be/","https://community.finary.com/","https://www.investisseurs-heureux.fr/f26","https://forum.finanzaonline.com/","https://www.auswandererforum.de/","https://www.wertpapier-forum.de/","https://gathering.tweakers.net/forum/","https://forum.allesamerika.com/"
   ],
-  "communities": [
-    "www.internations.org", "www.meetup.com", "www.facebook.com"
+  "communities": ["https://www.internations.org/montenegro-expats","https://www.meetup.com/budva-expats/","https://www.montenegroexpats.com/expat-communities","https://www.facebook.com/"],
+  "facebook_groups": [
+    "https://www.facebook.com/groups/575513866275666","https://www.facebook.com/groups/488573470025685","https://www.facebook.com/groups/372771683412684","https://www.facebook.com/groups/1413331622259578","https://www.facebook.com/groups/1287822358267595","https://www.facebook.com/groups/192965367985554","https://www.facebook.com/groups/1587640852047583","https://www.facebook.com/groups/montenegroexpatgroup","https://www.facebook.com/groups/456503945100713","https://www.facebook.com/groups/allexpatsinthenetherlands","https://www.facebook.com/groups/308414006450870","https://www.facebook.com/groups/life.in.belgium","https://www.facebook.com/groups/expatsbelgium","https://www.facebook.com/groups/brusselsexpats.be","https://www.facebook.com/groups/expatslivinginitaly","https://www.facebook.com/groups/greekresidency"
   ],
   "telegram": [
-    "cyprusy", "velesproperty", "btinvestnorthcyprus", "prian_property", "astonspassport",
-    "VillaEdelweissMontenegro", "Montenegrosupreme", "indemochat", "hayatestate_online"
+    "https://t.me/cyprusy","https://t.me/velesproperty","https://t.me/btinvestnorthcyprus","https://t.me/prian_property","https://t.me/astonspassport","https://t.me/VillaEdelweissMontenegro","https://t.me/Montenegrosupreme","https://t.me/indemochat","https://t.me/sadeceemlakoto","https://t.me/+WZluIebsLjwxYTFk","https://t.me/+Rxo-Uo74TL5kZGFi","https://t.me/hayatestate_online","https://tlgrm.ru/channels/@velesproperty","https://telegid.me/catalog/kipr","https://telegid.me/catalog/chernogoriya/budva","https://telega.io/catalog/real_estate"
   ],
-  "golden_visa": [
-    "community.nomadgate.com", "www.expat.com", "www.expatforum.com", "forum-eu.com", "r/goldenvisa"
-  ],
-  "notes": [
-    "Listing portals are discovery/context sources, not buyer leads.",
-    "WhatsApp is treated as community discovery only unless content is public and indexed.",
-    "Golden Visa intent only qualifies when there is property/investment/relocation evidence."
-  ]
+  "whatsapp_discovery": ["https://chat.whatsapp.com/CEBlpmf0L319Qq3UGCGZ3c","https://chat.whatsapp.com/IZ65IfzolaMJmajI578LTw"],
+  "golden_visa": ["https://community.nomadgate.com/","https://www.bogleheads.org/","https://www.expatforum.com/","https://www.expat.com/","https://www.facebook.com/groups/575513866275666","https://www.facebook.com/groups/488573470025685","https://www.facebook.com/groups/greekresidency","https://forum-eu.com/","https://www.reddit.com/r/ExpatFIRE/","https://www.reddit.com/r/goldenvisa/"],
+  "regional": {
+    "north_cyprus": ["https://www.101evler.com/","https://ilancik.com/en/","https://northern-cyprus-property.com/tr/","https://tekce.com/tr/emlak-kibris","https://cyprusliving.org/","https://telegid.me/catalog/kipr"],
+    "montenegro": ["https://www.montenegroexpats.com/expat-communities","https://www.internations.org/montenegro-expats","https://www.meetup.com/budva-expats/","https://www.expat.com/en/forum/europe/montenegro/","https://thewanderinginvestor.com/","https://nepokretnost.me/","https://realting.com/ru/montenegro"],
+    "italy": ["https://www.expat.com/en/forum/europe/italy/","https://forum.finanzaonline.com/threads/investimento-immobiliare-allestero.1973944/","https://www.propit.it/threads/120-000-euro-da-investire-meglio-immobile-in-italia-o-all-estero-per-rendita.51914/"],
+    "germany": ["https://www.wertpapier-forum.de/topic/68620-immobilienkauf-als-geldanlage-%E2%80%93-erste-%C3%BCberlegungen-feedback-erbeten/","https://www.wiwi-treff.de/Immobilien/Hauskauf/Haus-im-Ausland-kaufen/Diskussion-97126","https://gathering.tweakers.net/forum/list_messages/2142686"],
+    "france": ["https://community.finary.com/t/investir-dans-limmobilier-en-france-depuis-letranger/37245","https://www.investisseurs-heureux.fr/f26"],
+    "netherlands": ["https://www.investeerders.nl/europees-vastgoed/"],
+    "belgium": ["https://forum.pim.be/"],
+    "kazakhstan": ["https://almaty.mipif.com/","https://realting.com/ru/kazakhstan"],
+    "russia": ["https://prian.ru/","https://realting.com/ru/russia"],
+    "us_diaspora": ["https://forum.allesamerika.com/viewtopic.php?t=79933"]
+  },
+  "discovery_only_portals_and_guides": ["https://prian.ru/","https://realting.com/","https://nepokretnost.me/","https://www.101evler.com/","https://ilancik.com/en/","https://tekce.com/tr/emlak-kibris","https://northern-cyprus-property.com/tr/","https://getgoldenvisa.com/","https://imidaily.com/","https://henleyglobal.com/","https://goldenvisas.com/","https://jarniascyril.com/","https://adrianleeds.com/","https://frenchestateagents.com/","https://germanrealty.org/"],
+  "known_misclassifications": {
+    "italy":"Golden Visa exists but no real-estate route.",
+    "uk":"Tier 1 Investor Visa closed in 2022; UK is not a current Golden Visa market.",
+    "germany":"No classic Golden Visa; property purchase does not itself equal investor residency.",
+    "france":"No classic Golden Visa; property purchase does not itself equal investor residency.",
+    "netherlands":"No classic Golden Visa; property purchase does not itself equal investor residency.",
+    "belgium":"No classic Golden Visa; property purchase does not itself equal investor residency.",
+    "russia":"No Golden Visa; foreign investment/property is subject to legal and sanctions considerations.",
+    "kazakhstan":"No Golden Visa; foreign-property interest remains relevant.",
+    "north_cyprus":"Not an officially recognized EU Golden Visa; residency/property treatment must be handled separately."
+  },
+  "routes": {"north_cyprus":"Prime Kıbrıs","turkey":"Turkey Partner","greece":"Golden Visa Partner","portugal":"Golden Visa Partner","cyprus":"Golden Visa Partner","germany":"Germany Partner","netherlands":"Netherlands Partner","france":"France Partner","montenegro":"Partner Network","uk":"Partner Network","belgium":"Partner Network","lithuania":"Partner Network","italy":"Partner Network","spain":"Partner Network","russia":"Partner Network","kazakhstan":"Partner Network","poland":"Partner Network","czech_republic":"Partner Network","austria":"Partner Network"}
 }
