@@ -38,5 +38,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          WORLD_EXA_MAX_CALLS: "8"
         run: |
           python main.py
