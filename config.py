@@ -4,7 +4,7 @@ COLLECTION = os.getenv("WORLD_FIRESTORE_COLLECTION", "bay_s_world_leads")
 SCAN_LOG_COLLECTION = os.getenv("WORLD_FIRESTORE_SCAN_COLLECTION", "bay_s_world_scans")
 LOOKBACK_HOURS = int(os.getenv("WORLD_LOOKBACK_HOURS", "24"))
 MAX_RESULTS_PER_SOURCE = int(os.getenv("WORLD_MAX_RESULTS_PER_SOURCE", "15"))
-EXA_NUM_RESULTS = int(os.getenv("WORLD_EXA_NUM_RESULTS", "6"))
+EXA_NUM_RESULTS = int(os.getenv("WORLD_EXA_NUM_RESULTS", "15"))
 EXA_MAX_CALLS = int(os.getenv("WORLD_EXA_MAX_CALLS", "6"))
 
 MARKETS = {
