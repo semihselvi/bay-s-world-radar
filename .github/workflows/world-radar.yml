@@ -28,7 +28,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          python -m py_compile main.py config.py world_engine.py world_hard_filters.py
+          python -m py_compile main.py config.py world_engine.py hybrid_engine.py world_hard_filters.py
 
       - name: Run BAY-S World Radar
         env:
@@ -37,7 +37,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
           WORLD_LOOKBACK_HOURS: "24"
-          WORLD_EXA_MAX_CALLS: "6"
           WORLD_EXA_NUM_RESULTS: "15"
+          WORLD_EXA_FALLBACK_CALLS: "2"
+          WORLD_TELEGRAM_CHANNELS: ${{ secrets.WORLD_TELEGRAM_CHANNELS }}
         run: |
-          python world_engine.py
+          python hybrid_engine.py
