@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 import main
+import world_hard_filters  # applies hard editorial/market/user-discussion filters
 
 # World Radar freshness policy: only Exa's explicit publishedDate is accepted.
 def fresh_verified_published(item):
