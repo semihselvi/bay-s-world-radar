@@ -1,0 +1,26 @@
+{
+  "reddit": [
+    "r/IWantOut", "r/ExpatFIRE", "r/expats", "r/goldenvisa", "r/eupersonalfinance",
+    "r/cyprus", "r/montenegro", "r/RealEstate", "r/HousingUK", "r/FirstTimeHomeBuyer"
+  ],
+  "forums": [
+    "community.nomadgate.com", "www.expat.com", "www.expatforum.com", "forums.moneysavingexpert.com",
+    "forum-eu.com", "forum.awd.ru", "forum.pim.be", "community.finary.com", "investisseurs-heureux.fr",
+    "forum.finanzaonline.com", "auswandererforum.de", "wertpapier-forum.de", "allesamerika.com"
+  ],
+  "communities": [
+    "www.internations.org", "www.meetup.com", "www.facebook.com"
+  ],
+  "telegram": [
+    "cyprusy", "velesproperty", "btinvestnorthcyprus", "prian_property", "astonspassport",
+    "VillaEdelweissMontenegro", "Montenegrosupreme", "indemochat", "hayatestate_online"
+  ],
+  "golden_visa": [
+    "community.nomadgate.com", "www.expat.com", "www.expatforum.com", "forum-eu.com", "r/goldenvisa"
+  ],
+  "notes": [
+    "Listing portals are discovery/context sources, not buyer leads.",
+    "WhatsApp is treated as community discovery only unless content is public and indexed.",
+    "Golden Visa intent only qualifies when there is property/investment/relocation evidence."
+  ]
+}
