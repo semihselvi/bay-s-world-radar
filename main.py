@@ -34,86 +34,50 @@ USER_SOURCE_DOMAINS = {
 }
 
 SOURCE_BUCKETS = [
-    {
-        "name": "north_cyprus_turkey",
-        "domains": ["reddit.com","facebook.com","t.me","tlgrm.ru","telegid.me","telega.io","expat.com","expatforum.com","nomadgate.com","101evler.com","ilancik.com","northern-cyprus-property.com","cyprusliving.org","tekce.com"],
-        "query": "real person actively looking to buy property or relocate with purchase intention in North Cyprus, Northern Cyprus, Iskele, Long Beach, Kyrenia, Girne, Esentepe, Famagusta, Gazimağusa, Turkey, Antalya, Alanya, Mersin; include English Turkish Russian discussions, budgets, property requirements, viewing trips and payment/legal questions; prioritize forums, Reddit, Facebook public pages and Telegram public pages; exclude listings, developers and agents"
-    },
-    {
-        "name": "balkans_greece_portugal_spain_italy_cyprus",
-        "domains": ["reddit.com","facebook.com","t.me","telegid.me","expat.com","expatforum.com","montenegroexpats.com","internations.org","meetup.com","forum-eu.com","prian.ru","realting.com","finanzaonline.com","propit.it","nomadgate.com"],
-        "query": "real person actively seeking to buy property, investment property, second home, relocation home or Golden Visa property in Montenegro Budva Kotor Tivat, Greece Athens Thessaloniki, Portugal Lisbon Algarve, Spain, Italy or Cyprus; prioritize genuine user questions and experience discussions with budgets, timing, viewing or legal/payment questions; include Russian-speaking and expat communities; exclude property advertisements"
-    },
-    {
-        "name": "western_europe",
-        "domains": ["reddit.com","facebook.com","expat.com","expatforum.com","finary.com","investisseurs-heureux.fr","pim.be","wertpapier-forum.de","wiwi-treff.de","gathering.tweakers.net","forum-eu.com"],
-        "query": "real person asking how or where to buy a house, apartment or investment property in Germany, France, Netherlands, Belgium or Lithuania; relocation and expat property discussions; look for explicit buyer intent, budget, timeframe, viewing, financing, deposit, legal or area comparison; include German French Dutch English discussions; exclude agencies and listings"
-    },
-    {
-        "name": "uk_central_europe",
-        "domains": ["reddit.com","facebook.com","expat.com","expatforum.com","property118.com","housepricecrash.co.uk","moneysavingexpert.com","forum-eu.com","auswandererforum.de","forum.allesamerika.com"],
-        "query": "real person discussing an active property purchase, relocation with buying intent or overseas investment property from or in the United Kingdom, Poland, Czech Republic or Austria; require concrete buying signals such as budget, specific property, viewing, mortgage, deposit, timeframe or area comparison; English German Polish Czech discussions; do not treat UK as a Golden Visa market"
-    },
-    {
-        "name": "golden_visa_global",
-        "domains": ["nomadgate.com","bogleheads.org","expatforum.com","expat.com","reddit.com","facebook.com","forum-eu.com","t.me","tlgrm.ru","telega.io"],
-        "query": "real investor or family actively considering Golden Visa, residency by investment or European property purchase; focus on Greece Portugal Italy Cyprus Malta Montenegro and other valid investment residency routes; require concrete property or investment intent, budget, family, timeline, planned visit or legal/payment question; distinguish Italy as non-real-estate Golden Visa route and do not treat UK Germany France Netherlands Belgium as classic Golden Visa property markets"
-    },
-    {
-        "name": "russian_cis_abroad",
-        "domains": ["reddit.com","forum.awd.ru","prian.ru","realting.com","t.me","tlgrm.ru","telega.io","facebook.com","expat.com","forum-eu.com","internations.org"],
-        "query": "Russian or Kazakh real person looking to buy property abroad, move abroad or invest in property in Montenegro, North Cyprus, Greece, Turkey or Europe; search Russian phrases хочу купить, ищу квартиру, ищу недвижимость, куплю недвижимость, планирую купить, недвижимость за рубежом, инвестиции в недвижимость, переезд, ВНЖ and Kazakhstan Almaty Алматы Astana Астана; require concrete budget, location, property type or timing; exclude seller advertisements"
-    }
+    {"name":"north_cyprus_turkey","domains":["reddit.com","facebook.com","t.me","tlgrm.ru","telegid.me","telega.io","expat.com","expatforum.com","nomadgate.com","101evler.com","ilancik.com","northern-cyprus-property.com","cyprusliving.org","tekce.com"],"query":"real person actively looking to buy property or relocate with purchase intention in North Cyprus, Northern Cyprus, Iskele, Long Beach, Kyrenia, Girne, Esentepe, Famagusta, Gazimağusa, Turkey, Antalya, Alanya, Mersin; include English Turkish Russian discussions, budgets, property requirements, viewing trips and payment/legal questions; prioritize forums, Reddit, Facebook public pages and Telegram public pages; exclude listings, developers and agents"},
+    {"name":"balkans_greece_portugal_spain_italy_cyprus","domains":["reddit.com","facebook.com","t.me","telegid.me","expat.com","expatforum.com","montenegroexpats.com","internations.org","meetup.com","forum-eu.com","prian.ru","realting.com","finanzaonline.com","propit.it","nomadgate.com"],"query":"real person actively seeking to buy property, investment property, second home, relocation home or Golden Visa property in Montenegro Budva Kotor Tivat, Greece Athens Thessaloniki, Portugal Lisbon Algarve, Spain, Italy or Cyprus; prioritize genuine user questions and experience discussions with budgets, timing, viewing or legal/payment questions; include Russian-speaking and expat communities; exclude property advertisements"},
+    {"name":"western_europe","domains":["reddit.com","facebook.com","expat.com","expatforum.com","finary.com","investisseurs-heureux.fr","pim.be","wertpapier-forum.de","wiwi-treff.de","gathering.tweakers.net","forum-eu.com"],"query":"real person asking how or where to buy a house, apartment or investment property in Germany, France, Netherlands, Belgium or Lithuania; relocation and expat property discussions; look for explicit buyer intent, budget, timeframe, viewing, financing, deposit, legal or area comparison; include German French Dutch English discussions; exclude agencies and listings"},
+    {"name":"uk_central_europe","domains":["reddit.com","facebook.com","expat.com","expatforum.com","property118.com","housepricecrash.co.uk","moneysavingexpert.com","forum-eu.com","auswandererforum.de","forum.allesamerika.com"],"query":"real person discussing an active property purchase, relocation with buying intent or overseas investment property from or in the United Kingdom, Poland, Czech Republic or Austria; require concrete buying signals such as budget, specific property, viewing, mortgage, deposit, timeframe or area comparison; English German Polish Czech discussions; do not treat UK as a Golden Visa market"},
+    {"name":"golden_visa_global","domains":["nomadgate.com","bogleheads.org","expatforum.com","expat.com","reddit.com","facebook.com","forum-eu.com","t.me","tlgrm.ru","telega.io"],"query":"real investor or family actively considering Golden Visa, residency by investment or European property purchase; focus on Greece Portugal Italy Cyprus Malta Montenegro and other valid investment residency routes; require concrete property or investment intent, budget, family, timeline, planned visit or legal/payment question; distinguish Italy as non-real-estate Golden Visa route and do not treat UK Germany France Netherlands Belgium as classic Golden Visa property markets"},
+    {"name":"russian_cis_abroad","domains":["reddit.com","forum.awd.ru","prian.ru","realting.com","t.me","tlgrm.ru","telega.io","facebook.com","expat.com","forum-eu.com","internations.org"],"query":"Russian or Kazakh real person looking to buy property abroad, move abroad or invest in property in Montenegro, North Cyprus, Greece, Turkey or Europe; search Russian phrases хочу купить, ищу квартиру, ищу недвижимость, куплю недвижимость, планирую купить, недвижимость за рубежом, инвестиции в недвижимость, переезд, ВНЖ and Kazakhstan Almaty Алматы Astana Астана; require concrete budget, location, property type or timing; exclude seller advertisements"}
 ]
 
-
 def now_utc(): return datetime.now(timezone.utc)
-
 def parse_dt(value):
     if not value: return None
     value=str(value).strip().replace("Z","+00:00")
     try: dt=datetime.fromisoformat(value)
     except Exception:
         try:
-            from email.utils import parsedate_to_datetime
-            dt=parsedate_to_datetime(value)
+            from email.utils import parsedate_to_datetime; dt=parsedate_to_datetime(value)
         except Exception: return None
     if dt.tzinfo is None: dt=dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
-
 def domain_of(url):
     try: return urlparse(url).netloc.lower().replace("www.","")
     except Exception: return ""
-
 def source_is_user_generated(url):
     d=domain_of(url)
     if any(d==blocked or d.endswith("."+blocked) for blocked in DISCOVERY_ONLY_DOMAINS): return False
     return any(d==allowed or d.endswith("."+allowed) for allowed in USER_SOURCE_DOMAINS)
-
 def text_of(item): return " ".join(str(item.get(k,"")) for k in ("title","text","author")).strip().lower()
-
 def market_for(text):
     t=text.lower()
     for market,terms in MARKETS.items():
         if any(term.lower() in t for term in terms): return market
     return "unknown"
-
 def route_for(market): return ROUTES.get(market,"Direct Review")
 def contains_any(text,phrases): return any(p.lower() in text for p in phrases)
 def dedupe_key(item):
     basis=item.get("url") or f"{item.get('source')}|{item.get('title')}|{item.get('author')}"
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
-
 def exa_search(query,domains):
     api_key=os.getenv("EXA_API_KEY","").strip()
-    if not api_key:
-        print("EXA_DISABLED missing EXA_API_KEY"); return []
-    payload={"query":query,"type":"auto","numResults":min(EXA_NUM_RESULTS,6),"includeDomains":domains,"contents":{"text":True}}
+    if not api_key: print("EXA_DISABLED missing EXA_API_KEY"); return []
+    payload={"query":query,"type":"auto","numResults":min(EXA_NUM_RESULTS,15),"includeDomains":domains,"contents":{"text":True}}
     response=SESSION.post(EXA_URL,json=payload,headers={"x-api-key":api_key,"Content-Type":"application/json"},timeout=35)
-    if response.status_code!=200:
-        print("EXA_ERROR",response.status_code,response.text[:350]); return []
-    return [{"source":"Exa","url":x.get("url","") ,"title":x.get("title","") ,"text":x.get("text","") ,"published":x.get("publishedDate","") ,"author":""} for x in response.json().get("results",[])]
-
+    if response.status_code!=200: print("EXA_ERROR",response.status_code,response.text[:350]); return []
+    return [{"source":"Exa","url":x.get("url",""),"title":x.get("title",""),"text":x.get("text",""),"published":x.get("publishedDate",""),"author":""} for x in response.json().get("results",[])]
 def buyer_scores(item):
     text=text_of(item)
     if not source_is_user_generated(item.get("url", "")) or contains_any(text,NEGATIVE_PHRASES): return 0,0,0,"COLD"
@@ -134,7 +98,6 @@ def buyer_scores(item):
     elif intent>=45: label="REVIEW"
     else: label="COLD"
     return intent,credibility,fit,label
-
 def keep_candidate(item):
     text=text_of(item)
     if not item.get("url") or not source_is_user_generated(item["url"]): return False
@@ -143,28 +106,18 @@ def keep_candidate(item):
     personal=contains_any(text,["i want","i'm looking","we want","we're looking","my budget","our budget","ben","biz","хочу","ищу"])
     if seller_hits>=2 and not personal: return False
     return contains_any(text,INTENT_PHRASES)
-
 def suggested_reply(market):
-    return {
-        "north_cyprus":"Your requirements are specific enough to compare areas and total purchase costs rather than just asking price. I would check title/deed position, ongoing fees and how the property fits your intended use before deciding.",
-        "turkey":"With a defined area and budget, I would compare total acquisition costs, financing and resale/rental demand before choosing the property.",
-        "montenegro":"I would compare the short-listed areas on purchase costs, year-round demand, legal checks and resale liquidity before committing.",
-        "greece":"For a Golden Visa-related purchase, separate the residency requirement from the investment decision and compare the property on its own numbers as well.",
-        "portugal":"It is worth checking the current residency route separately from the property investment, then comparing net costs, liquidity and long-term use."
-    }.get(market,"Your requirements are specific enough to compare the area, total purchase costs and long-term use before making a decision.")
-
+    return {"north_cyprus":"Your requirements are specific enough to compare areas and total purchase costs rather than just asking price. I would check title/deed position, ongoing fees and how the property fits your intended use before deciding.","turkey":"With a defined area and budget, I would compare total acquisition costs, financing and resale/rental demand before choosing the property.","montenegro":"I would compare the short-listed areas on purchase costs, year-round demand, legal checks and resale liquidity before committing.","greece":"For a Golden Visa-related purchase, separate the residency requirement from the investment decision and compare the property on its own numbers as well.","portugal":"It is worth checking the current residency route separately from the property investment, then comparing net costs, liquidity and long-term use."}.get(market,"Your requirements are specific enough to compare the area, total purchase costs and long-term use before making a decision.")
 def firestore_client():
     raw=os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON","").strip()
     if not raw: return None
     info=json.loads(raw); creds=service_account.Credentials.from_service_account_info(info)
     return firestore.Client(credentials=creds,project=info.get("project_id"))
-
 def notify_telegram(message):
     token=os.getenv("TELEGRAM_BOT_TOKEN","").strip(); chat_id=os.getenv("TELEGRAM_CHAT_ID","").strip()
     if not token or not chat_id: return
     try: SESSION.post(f"https://api.telegram.org/bot{token}/sendMessage",json={"chat_id":chat_id,"text":message[:3900]},timeout=15)
     except Exception as exc: print("TELEGRAM_NOTIFY_ERROR",exc)
-
 def run():
     started=now_utc(); cutoff=started-timedelta(hours=LOOKBACK_HOURS); seen=set(); leads=[]; exa_calls=0
     for bucket in SOURCE_BUCKETS[:EXA_MAX_CALLS]:
@@ -174,8 +127,7 @@ def run():
         for item in results:
             item["source_bucket"]=bucket["name"]; key=dedupe_key(item)
             if key in seen: continue
-            seen.add(key)
-            published=parse_dt(item.get("published"))
+            seen.add(key); published=parse_dt(item.get("published"))
             if published and published<cutoff: continue
             if not keep_candidate(item): continue
             market=market_for(text_of(item)); intent,credibility,fit,label=buyer_scores(item)
