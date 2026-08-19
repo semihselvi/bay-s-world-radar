@@ -3,10 +3,8 @@ name: BAY-S World Radar
 on:
   workflow_dispatch:
   schedule:
-    - cron: "10 0 * * *"
-    - cron: "10 6 * * *"
-    - cron: "10 12 * * *"
-    - cron: "10 18 * * *"
+    # 06:00 UTC = 09:00 Turkey time (UTC+3)
+    - cron: "0 6 * * *"
 
 jobs:
   world-radar:
@@ -38,6 +36,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
-          WORLD_EXA_MAX_CALLS: "8"
+          WORLD_LOOKBACK_HOURS: "24"
+          WORLD_EXA_MAX_CALLS: "6"
+          WORLD_EXA_NUM_RESULTS: "6"
         run: |
           python main.py
