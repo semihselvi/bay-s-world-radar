@@ -28,7 +28,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          python -m py_compile main.py config.py world_engine.py hybrid_engine.py world_hard_filters.py
+          python -m py_compile main.py config.py world_engine.py hybrid_engine.py source_registry.py world_hard_filters.py
 
       - name: Run BAY-S World Radar
         env:
