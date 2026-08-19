@@ -107,7 +107,6 @@ def parse_dt(value):
 
 
 def extract_dates_from_text(text):
-    """Return plausible dates embedded in forum/article text."""
     dates = []
     patterns = [
         r"\b(20\d{2})-(\d{1,2})-(\d{1,2})\b",
@@ -121,13 +120,12 @@ def extract_dates_from_text(text):
         "jan":1,"feb":2,"mar":3,"apr":4,"jun":6,"jul":7,"aug":8,"sep":9,
         "oct":10,"nov":11,"dec":12
     }
-    low = text
     for pattern in patterns:
-        for m in re.finditer(pattern, low, flags=re.I):
+        for m in re.finditer(pattern, text, flags=re.I):
             try:
-                if len(m.groups()) == 3 and m.group(1).startswith("20"):
+                if m.group(1).startswith("20"):
                     y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
-                elif len(m.groups()) == 3 and m.group(3).startswith("20") and m.group(2).isdigit():
+                elif m.group(3).startswith("20") and m.group(2).isdigit():
                     d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
                 else:
                     d, mo, y = int(m.group(1)), month_map[m.group(2).lower()], int(m.group(3))
@@ -141,11 +139,9 @@ def verified_published(item):
     direct = parse_dt(item.get("published"))
     if direct:
         return direct
-    text = str(item.get("text", ""))
-    dates = extract_dates_from_text(text)
+    dates = extract_dates_from_text(str(item.get("text", "")))
     if not dates:
         return None
-    # Prefer the latest explicit date found in the page, not arbitrary historical statistics.
     return max(dates)
 
 
@@ -169,8 +165,7 @@ def text_of(item):
 
 def discussion_likelihood(item):
     text = text_of(item)
-    score = 0
-    score += min(4, sum(1 for p in DISCUSSION_SIGNALS if p.lower() in text))
+    score = min(4, sum(1 for p in DISCUSSION_SIGNALS if p.lower() in text))
     if re.search(r"\b(member since|new member|active member|reply|replies|post new topic)\b", text, flags=re.I):
         score += 3
     if re.search(r"\b(hi|hello)\b.*\b(i|we)\b", text, flags=re.I | re.S):
@@ -194,18 +189,47 @@ def editorial_likelihood(item):
     return score
 
 
-def market_for(text, bucket_name=""):
-    t = text.lower()
-    # Explicit market/location score beats incidental mentions inside articles.
-    market_terms = MARKETS
-    scores = {m: 0 for m in market_terms}
-    for market, terms in market_terms.items():
+def market_for(text, bucket_name="", url="", title=""):
+    # URL/title are stronger market evidence than incidental country names inside body text.
+    u = (url or "").lower()
+    t = (title or "").lower()
+    combined = f"{t} {text.lower()}"
+
+    path_markers = {
+        "greece": ["/greece/", "greece forum", "greek real estate", "greek golden visa", "athens", "thessaloniki"],
+        "montenegro": ["/montenegro/", "montenegro forum", "budva", "kotor", "tivat"],
+        "portugal": ["/portugal/", "portugal golden visa", "lisbon", "algarve"],
+        "spain": ["/spain/", "spain property", "malaga", "marbella", "alicante"],
+        "italy": ["/italy/", "italy property", "italian golden visa", "rome", "milan"],
+        "cyprus": ["/cyprus/", "republic of cyprus", "paphos", "limassol", "larnaca"],
+        "north_cyprus": ["north cyprus", "northern cyprus", "kuzey kibris", "trnc", "iskele", "long beach", "girne", "kyrenia", "gazimagusa", "famagusta"],
+        "turkey": ["/turkey/", "turkey property", "antalya", "alanya", "mersin", "istanbul", "izmir"],
+        "germany": ["/germany/", "german property", "deutschland", "berlin", "munich", "frankfurt"],
+        "netherlands": ["/netherlands/", "dutch property", "amsterdam", "rotterdam", "utrecht"],
+        "belgium": ["/belgium/", "belgian property", "brussels", "antwerp", "ghent"],
+        "france": ["/france/", "french property", "paris", "nice", "cannes"],
+        "lithuania": ["/lithuania/", "lithuanian property", "vilnius", "kaunas", "klaipeda"],
+        "kazakhstan": ["/kazakhstan/", "kazakhstan", "almaty", "астана", "астana", "astana"],
+        "russia": ["/russia/", "россия", "москва", "санкт-петербург"],
+        "uk": ["/united-kingdom/", "/uk/", "united kingdom", "london", "manchester", "birmingham", "leeds"],
+        "poland": ["/poland/", "poland", "warsaw", "krakow", "gdansk"],
+        "czech_republic": ["/czech-republic/", "czechia", "prague", "brno"],
+        "austria": ["/austria/", "austria", "vienna", "salzburg", "innsbruck"],
+    }
+
+    for market, markers in path_markers.items():
+        if any(marker in u or marker in t for marker in markers):
+            return market
+
+    scores = {m: 0 for m in MARKETS}
+    for market, terms in MARKETS.items():
         for term in terms:
-            if term.lower() in t:
+            if term.lower() in combined:
                 scores[market] += 1
-    # Bucket-level hints reduce obvious misclassification.
+
     hints = {
         "north_cyprus_turkey": ["north_cyprus", "turkey"],
+        "balkans_greece_portugal_spain_italy_cyprus": ["greece", "portugal", "spain", "italy", "cyprus", "montenegro"],
         "western_europe": ["germany", "france", "netherlands", "belgium", "lithuania"],
         "uk_central_europe": ["uk", "poland", "czech_republic", "austria"],
         "russian_cis_abroad": ["russia", "kazakhstan", "montenegro", "north_cyprus", "greece", "turkey"],
@@ -240,70 +264,36 @@ def exa_search(query, domains):
         "includeDomains": domains,
         "contents": {"text": True}
     }
-    response = SESSION.post(
-        EXA_URL,
-        json=payload,
-        headers={"x-api-key": api_key, "Content-Type": "application/json"},
-        timeout=35
-    )
+    response = SESSION.post(EXA_URL, json=payload, headers={"x-api-key": api_key, "Content-Type": "application/json"}, timeout=35)
     if response.status_code != 200:
         print("EXA_ERROR", response.status_code, response.text[:350])
         return []
-    return [
-        {
-            "source": "Exa",
-            "url": x.get("url", ""),
-            "title": x.get("title", ""),
-            "text": x.get("text", ""),
-            "published": x.get("publishedDate", ""),
-            "author": ""
-        }
-        for x in response.json().get("results", [])
-    ]
+    return [{"source":"Exa", "url":x.get("url",""), "title":x.get("title",""), "text":x.get("text",""), "published":x.get("publishedDate",""), "author":""} for x in response.json().get("results", [])]
 
 
 def buyer_scores(item):
     text = text_of(item)
-    if not source_is_user_generated(item.get("url", "")):
-        return 0, 0, 0, "COLD"
-    if contains_any(text, NEGATIVE_PHRASES):
+    if not source_is_user_generated(item.get("url", "")) or contains_any(text, NEGATIVE_PHRASES):
         return 0, 0, 0, "COLD"
 
-    explicit = sum(1 for p in [
-        "looking to buy", "want to buy", "planning to buy", "ready to buy",
-        "looking for apartment", "looking for property", "хочу купить", "ищу квартиру",
-        "куплю недвижимость", "ev almak istiyorum", "daire arıyorum", "satın almak istiyorum"
-    ] if p in text)
-    personal = sum(1 for p in [
-        "i am", "i'm", "we are", "we're", "my budget", "our budget", "i want", "we want",
-        "ben", "biz", "bütçem", "бюджет", "мой бюджет", "наш бюджет"
-    ] if p in text)
+    explicit = sum(1 for p in ["looking to buy","want to buy","planning to buy","ready to buy","looking for apartment","looking for property","хочу купить","ищу квартиру","куплю недвижимость","ev almak istiyorum","daire arıyorum","satın almak istiyorum"] if p in text)
+    personal = sum(1 for p in ["i am","i'm","we are","we're","my budget","our budget","i want","we want","ben","biz","bütçem","бюджет","мой бюджет","наш бюджет"] if p in text)
     money = bool(re.search(r"(?:€|£|\$|₺|₽)\s?\d[\d,.\s]*(?:k|m)?|\b\d{2,3}\s?[km]\b", text))
-    property_type = sum(1 for p in [
-        "apartment", "house", "villa", "property", "land", "daire", "ev", "квартира", "дом", "вилла", "недвижимость"
-    ] if p in text)
-    transaction = sum(1 for p in [
-        "viewing", "property viewing", "offer", "deposit", "mortgage", "payment plan", "lawyer",
-        "title deed", "reservation", "due diligence", "ипотека", "взнос"
-    ] if p in text)
-    relocation = sum(1 for p in [
-        "moving to", "relocating to", "переезд", "переезжаем", "taşınmak", "Kıbrıs'a taşınmak"
-    ] if p in text)
+    property_type = sum(1 for p in ["apartment","house","villa","property","land","daire","ev","квартира","дом","вилла","недвижимость"] if p in text)
+    transaction = sum(1 for p in ["viewing","property viewing","offer","deposit","mortgage","payment plan","lawyer","title deed","reservation","due diligence","ипотека","взнос"] if p in text)
+    relocation = sum(1 for p in ["moving to","relocating to","переезд","переезжаем","taşınmak","Kıbrıs'a taşınmak"] if p in text)
 
     discussion = discussion_likelihood(item)
     credibility = 50 + min(25, discussion * 4) + (10 if money else 0) + (8 if personal >= 2 else 0)
     intent = 30 + explicit * 12 + personal * 7 + (15 if money else 0) + min(15, property_type * 3) + min(15, transaction * 3) + min(10, relocation * 5)
     fit = 60 if item.get("market", "unknown") != "unknown" else 45
-    if money:
-        fit += 10
-    if transaction:
-        fit += 5
+    if money: fit += 10
+    if transaction: fit += 5
 
     credibility = max(0, min(100, credibility))
     intent = max(0, min(100, intent))
     fit = max(0, min(100, fit))
 
-    # HOT requires actual personal/discussion evidence, not merely a property keyword.
     real_person_signal = personal >= 1 or discussion >= 4
     concrete_signal = money or transaction >= 1 or relocation >= 1
     if intent >= 80 and credibility >= 75 and fit >= 70 and real_person_signal and concrete_signal:
@@ -329,7 +319,6 @@ def keep_candidate(item, cutoff):
     if published < cutoff:
         return False, "older_than_24h"
 
-    # Editorial/news/guide pages cannot become a buyer lead simply because they contain buying terminology.
     if editorial_likelihood(item) >= 3:
         return False, "editorial_or_article"
     if discussion_likelihood(item) < 3:
@@ -374,11 +363,7 @@ def notify_telegram(message):
     if not token or not chat_id:
         return
     try:
-        response = SESSION.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": message[:3900]},
-            timeout=15
-        )
+        response = SESSION.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": message[:3900]}, timeout=15)
         if response.status_code != 200:
             print("TELEGRAM_ERROR", response.status_code, response.text[:300])
     except Exception as exc:
@@ -390,7 +375,7 @@ def run():
     cutoff = started - timedelta(hours=LOOKBACK_HOURS)
     seen = set()
     leads = []
-    stats = {"non_user_source":0, "date_unverified":0, "older_than_24h":0, "editorial_or_article":0, "not_enough_user_discussion_signal":0, "negative_or_rental":0, "seller_agent":0, "no_buyer_intent":0}
+    stats = {"non_user_source":0,"date_unverified":0,"older_than_24h":0,"editorial_or_article":0,"not_enough_user_discussion_signal":0,"negative_or_rental":0,"seller_agent":0,"no_buyer_intent":0}
     exa_calls = 0
 
     for bucket in SOURCE_BUCKETS[:EXA_MAX_CALLS]:
@@ -419,7 +404,7 @@ def run():
                     stats[reason] += 1
                 continue
 
-            market = market_for(text_of(item), bucket["name"])
+            market = market_for(text_of(item), bucket["name"], item.get("url", ""), item.get("title", ""))
             item["market"] = market
             intent, credibility, fit, label = buyer_scores(item)
             if label not in ("HOT", "WARM"):
@@ -444,7 +429,6 @@ def run():
     db = firestore_client()
     scan_id = started.strftime("%Y%m%d%H%M%S")
     if db:
-        # Store ONLY this scan's leads under a scan-specific subcollection.
         scan_ref = db.collection(SCAN_LOG_COLLECTION).document(scan_id)
         batch = db.batch()
         for lead in leads[:100]:
@@ -468,9 +452,7 @@ def run():
     if leads:
         lines = [f"BAY-S WORLD RADAR | {len(leads)} HOT/WARM | Exa calls: {exa_calls}"]
         for lead in leads[:10]:
-            lines.append(
-                f"{lead['classification']} | {lead['market']} | I{lead['intent_score']} C{lead['credibility_score']} F{lead['market_fit_score']} | {lead.get('title','')[:120]} | {lead.get('url','')}"
-            )
+            lines.append(f"{lead['classification']} | {lead['market']} | I{lead['intent_score']} C{lead['credibility_score']} F{lead['market_fit_score']} | {lead.get('title','')[:120]} | {lead.get('url','')}")
         notify_telegram("\n".join(lines))
 
 
