@@ -1,3 +1,5 @@
+import os
+from datetime import datetime, timezone, timedelta
 import main
 
 # Same 6 Exa calls, but discovery is explicitly biased toward newly-created
@@ -5,7 +7,7 @@ import main
 main.SOURCE_BUCKETS = [
     {
         "name": "fresh_north_cyprus_turkey",
-        "domains": ["reddit.com","facebook.com","t.me","tlgrm.ru","telegid.me","telega.io","expat.com","expatforum.com","nomadgate.com","cyprusliving.org"],
+        "domains": ["reddit.com","facebook.com","t.me","tlgrm.ru","telegid.me","expat.com","expatforum.com","nomadgate.com","cyprusliving.org"],
         "query": "past 24 hours newly posted user discussion, real person, active buyer intent: looking to buy property, apartment, villa, house or investment property in North Cyprus Northern Cyprus Kuzey Kıbrıs İskele Iskele Long Beach Girne Kyrenia Esentepe Gazimağusa Famagusta Bafra Tatlısu or Turkey Antalya Alanya Mersin Istanbul Izmir; English Turkish Russian; require personal first-person language, budget, property requirements, viewing trip, offer, deposit, mortgage, payment plan or legal/title question; prioritize newly posted forum/reddit/public facebook/telegram discussions; exclude listings, agents, developers, guides and news",
     },
     {
@@ -31,9 +33,57 @@ main.SOURCE_BUCKETS = [
     {
         "name": "fresh_russian_cis",
         "domains": ["reddit.com","forum.awd.ru","prian.ru","realting.com","t.me","tlgrm.ru","telega.io","facebook.com","expat.com","forum-eu.com","internations.org"],
-        "query": "пост или обсуждение за последние 24 часа, реальный человек хочет купить недвижимость, ищет квартиру, ищет виллу, хочет дом, планирует покупку или переезд с покупкой; Russian or Kazakh buyers looking abroad in Montenegro Северный Кипр Северный Кипр/Кузей Кипр, Greece, Turkey, Portugal, Spain, Italy, Germany, France or EU; include хочу купить, ищу квартиру, ищу недвижимость, куплю недвижимость, готов купить, планирую купить, бюджет, переезд, ВНЖ, плюс Алматы Астана; require first-person concrete budget/location/property/timing/transaction signal; exclude advertisements, agents, developers, portals and articles",
+        "query": "пост или обсуждение за последние 24 часа, реальный человек хочет купить недвижимость, ищет квартиру, ищет виллу, хочет дом, планирует покупку или переезд с покупкой; Russian or Kazakh buyers looking abroad in Montenegro Северный Кипр Kuzey Kıbrıs, Greece, Turkey, Portugal, Spain, Italy, Germany, France or EU; include хочу купить, ищу квартиру, ищу недвижимость, куплю недвижимость, готов купить, планирую купить, бюджет, переезд, ВНЖ, плюс Алматы Астана; require first-person concrete budget/location/property/timing/transaction signal; exclude advertisements, agents, developers, portals and articles",
     },
 ]
+
+
+def fresh_exa_search(query, domains):
+    """Hard-limit Exa discovery to the latest 24 hours before scoring."""
+    api_key = os.getenv("EXA_API_KEY", "").strip()
+    if not api_key:
+        print("EXA_DISABLED missing EXA_API_KEY")
+        return []
+
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=int(os.getenv("WORLD_LOOKBACK_HOURS", "24")))
+
+    payload = {
+        "query": query,
+        "type": "auto",
+        "numResults": min(main.EXA_NUM_RESULTS, 15),
+        "includeDomains": domains,
+        "startPublishedDate": start.isoformat().replace("+00:00", "Z"),
+        "endPublishedDate": now.isoformat().replace("+00:00", "Z"),
+        "contents": {"text": True},
+    }
+
+    response = main.SESSION.post(
+        main.EXA_URL,
+        json=payload,
+        headers={"x-api-key": api_key, "Content-Type": "application/json"},
+        timeout=35,
+    )
+    if response.status_code != 200:
+        print("EXA_ERROR", response.status_code, response.text[:350])
+        return []
+
+    results = []
+    for x in response.json().get("results", []):
+        results.append({
+            "source": "Exa",
+            "url": x.get("url", ""),
+            "title": x.get("title", ""),
+            "text": x.get("text", ""),
+            "published": x.get("publishedDate", ""),
+            "author": "",
+        })
+    return results
+
+
+# Replace the generic Exa search with the hard-fresh version for this runner only.
+main.exa_search = fresh_exa_search
+
 
 if __name__ == "__main__":
     main.run()
