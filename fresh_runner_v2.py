@@ -1,14 +1,36 @@
 import os
+import re
 from datetime import datetime, timedelta, timezone
 import main
 import world_hard_filters
 
 
 def fresh_verified_published(item):
+    """Resolve freshness using Exa date plus explicit page-relative timestamps."""
+    now = datetime.now(timezone.utc)
     value = item.get("published", "")
-    if not value:
-        return None
-    return main.parse_dt(value)
+    direct = main.parse_dt(value) if value else None
+    text = str(item.get("text", ""))
+    low = text.lower()
+
+    relative_patterns = (
+        r"\bjust now\b",
+        r"\b\d+\s+minutes?\s+ago\b",
+        r"\b\d+\s+hours?\s+ago\b",
+        r"\b(?:posted|published)\s+(?:today|this morning|this afternoon|this evening)\b",
+        r"\btoday\b",
+    )
+    if any(re.search(p, low, flags=re.I) for p in relative_patterns):
+        return now
+
+    text_dates = main.extract_dates_from_text(text)
+    if text_dates:
+        latest = max(text_dates)
+        if latest <= now and latest >= now - timedelta(days=7):
+            if direct is None or latest > direct:
+                return latest
+
+    return direct
 
 
 def fresh_exa_search(query, domains):
@@ -17,8 +39,6 @@ def fresh_exa_search(query, domains):
         print("EXA_DISABLED missing EXA_API_KEY")
         return []
     now = datetime.now(timezone.utc)
-    # Discovery window is wider than the lead window because Exa/forum timestamps
-    # can be coarse or delayed. main.py still applies the definitive 24h cutoff.
     start = now - timedelta(days=7)
     payload = {
         "query": query,
@@ -29,15 +49,24 @@ def fresh_exa_search(query, domains):
         "endPublishedDate": now.isoformat().replace("+00:00", "Z"),
         "contents": {"text": True},
     }
-    response = main.SESSION.post(main.EXA_URL, json=payload,
-        headers={"x-api-key": api_key, "Content-Type": "application/json"}, timeout=35)
+    response = main.SESSION.post(
+        main.EXA_URL,
+        json=payload,
+        headers={"x-api-key": api_key, "Content-Type": "application/json"},
+        timeout=35,
+    )
     if response.status_code != 200:
         print("EXA_ERROR", response.status_code, response.text[:350])
         return []
     return [{
-        "source": "Exa", "url": x.get("url", ""), "title": x.get("title", ""),
-        "text": x.get("text", ""), "published": x.get("publishedDate", ""), "author": ""
+        "source": "Exa",
+        "url": x.get("url", ""),
+        "title": x.get("title", ""),
+        "text": x.get("text", ""),
+        "published": x.get("publishedDate", ""),
+        "author": "",
     } for x in response.json().get("results", [])]
+
 
 main.exa_search = fresh_exa_search
 main.verified_published = fresh_verified_published
