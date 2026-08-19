@@ -50,25 +50,15 @@ jobs:
           print(f'LATEST_SCAN_EXA_CALLS={meta.get("exa_calls",0)}')
           print(f'FILTER_STATS={json.dumps(meta.get("filter_stats",{}), ensure_ascii=False)}')
 
-          # Preferred storage: scan-specific subcollection.
+          # Only the scan-specific collection is authoritative for the current scan.
           leads = []
           for doc in scan.reference.collection('leads').stream():
               d = doc.to_dict() or {}
               d['_id'] = doc.id
               leads.append(d)
 
-          storage_mode = 'scan_subcollection'
-
-          # Backward-compatible fallback for scans created before the subcollection model.
-          if not leads and started_at:
-              legacy = []
-              for doc in db.collection('bay_s_world_leads').stream():
-                  d = doc.to_dict() or {}
-                  if d.get('scanned_at') == started_at and d.get('classification') in ('HOT','WARM'):
-                      d['_id'] = doc.id
-                      legacy.append(d)
-              leads = legacy
-              storage_mode = 'legacy_top_level_by_scanned_at'
+          print('LEAD_STORAGE_MODE=scan_subcollection_only')
+          print(f'CURRENT_SCAN_LEADS_FOUND={len(leads)}')
 
           leads.sort(key=lambda d: (
               d.get('classification') == 'HOT',
@@ -76,9 +66,6 @@ jobs:
               d.get('credibility_score',0),
               d.get('market_fit_score',0)
           ), reverse=True)
-
-          print(f'LEAD_STORAGE_MODE={storage_mode}')
-          print(f'CURRENT_SCAN_LEADS_FOUND={len(leads)}')
 
           for i, d in enumerate(leads[:20], 1):
               print('\n===== LEAD', i, '=====')
