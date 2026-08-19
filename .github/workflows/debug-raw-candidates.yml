@@ -1,0 +1,65 @@
+name: Debug Raw World Radar Candidates
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run raw candidate capture
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          WORLD_LOOKBACK_HOURS: "24"
+          WORLD_EXA_MAX_CALLS: "6"
+          WORLD_EXA_NUM_RESULTS: "15"
+        run: |
+          python -m py_compile main.py fresh_runner.py debug_raw_runner.py
+          python debug_raw_runner.py
+
+      - name: Print raw candidates from latest scan
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python - <<'PY'
+          import os, json
+          from google.cloud import firestore
+          from google.oauth2 import service_account
+
+          raw = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON','').strip()
+          info = json.loads(raw)
+          creds = service_account.Credentials.from_service_account_info(info)
+          db = firestore.Client(credentials=creds, project=info.get('project_id'))
+          scans = list(db.collection('bay_s_world_scans').order_by('started_at', direction=firestore.Query.DESCENDING).limit(1).stream())
+          if not scans:
+              raise SystemExit('NO_SCAN_FOUND')
+          scan = scans[0]
+          docs = list(scan.reference.collection('raw_candidates').stream())
+          print(f'RAW_CANDIDATES_FOUND={len(docs)}')
+          for i, doc in enumerate(docs[:120], 1):
+              d = doc.to_dict() or {}
+              print('\n===== RAW', i, '=====')
+              for key in ['reason','source_bucket','source_domain','published','verified_published','title','url','text']:
+                  value = d.get(key,'')
+                  if isinstance(value, str) and len(value) > 1200:
+                      value = value[:1200] + '...'
+                  print(f'{key}: {value}')
+          PY
