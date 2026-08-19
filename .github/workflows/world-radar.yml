@@ -28,7 +28,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          python -m py_compile main.py config.py fresh_runner_v2.py world_hard_filters.py
+          python -m py_compile main.py config.py world_engine.py world_hard_filters.py
 
       - name: Run BAY-S World Radar
         env:
@@ -40,4 +40,4 @@ jobs:
           WORLD_EXA_MAX_CALLS: "6"
           WORLD_EXA_NUM_RESULTS: "15"
         run: |
-          python fresh_runner_v2.py
+          python world_engine.py
