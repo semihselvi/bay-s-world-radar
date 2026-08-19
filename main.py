@@ -13,11 +13,13 @@ from google.oauth2 import service_account
 
 from config import *
 
-UA = "Mozilla/5.0 (compatible; BAY-S-World-Radar/1.0)"
+UA = "Mozilla/5.0 (compatible; BAY-S-World-Radar/1.1)"
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
-
 REQUEST_TIMEOUT = 15
+
+# HARD COST GUARD: never make more than this many Exa requests in one run.
+EXA_MAX_CALLS = int(os.getenv("WORLD_EXA_MAX_CALLS", "20"))
 
 
 def now_utc():
@@ -89,6 +91,7 @@ def reddit_search(query):
 
 
 def google_news(query):
+    # Discovery only. News pages are NEVER accepted as buyer leads by themselves.
     url = "https://news.google.com/rss/search"
     r = SESSION.get(url, params={"q": f"{query} when:1d", "hl": "en-US", "gl": "US", "ceid": "US:en"}, timeout=REQUEST_TIMEOUT)
     r.raise_for_status()
@@ -106,15 +109,22 @@ def google_news(query):
     return out
 
 
-def exa_search(query, domains=None):
+def exa_search(query):
     api_key = os.getenv("EXA_API_KEY", "").strip()
     if not api_key:
         return []
-    payload = {"query": query, "type": "auto", "numResults": EXA_NUM_RESULTS, "contents": {"text": True}}
-    if domains:
-        payload["includeDomains"] = domains
-    r = SESSION.post("https://api.exa.ai/search", json=payload,
-                     headers={"x-api-key": api_key, "Content-Type": "application/json"}, timeout=30)
+    payload = {
+        "query": query,
+        "type": "auto",
+        "numResults": min(EXA_NUM_RESULTS, 5),
+        "contents": {"text": True},
+    }
+    r = SESSION.post(
+        "https://api.exa.ai/search",
+        json=payload,
+        headers={"x-api-key": api_key, "Content-Type": "application/json"},
+        timeout=30,
+    )
     if r.status_code != 200:
         print("EXA", r.status_code, r.text[:400])
         return []
@@ -131,6 +141,10 @@ def exa_search(query, domains=None):
 
 def buyer_scores(item):
     text = text_of(item)
+    # News and generic search pages are not buyers.
+    if item.get("source") == "Google News":
+        return 0, 0, 0, "COLD"
+
     intent_hits = sum(1 for p in INTENT_PHRASES if p.lower() in text)
     personal_hits = sum(1 for p in [
         "i am", "i'm", "we are", "we're", "my budget", "our budget", "i want", "we want",
@@ -142,8 +156,8 @@ def buyer_scores(item):
     seller_hits = sum(1 for p in EXCLUDE_PHRASES if p.lower() in text)
     negative = contains_any(text, NEGATIVE_PHRASES)
 
-    intent = min(100, 35 + intent_hits * 7 + personal_hits * 4 + (12 if budget else 0) + (12 if location else 0) + min(15, transaction * 3) - min(35, seller_hits * 7))
-    credibility = min(100, 50 + personal_hits * 5 + (15 if budget else 0) + (10 if len(text) > 500 else 0) + (5 if item.get("author") else 0) - min(30, seller_hits * 8))
+    intent = min(100, 30 + intent_hits * 7 + personal_hits * 5 + (15 if budget else 0) + (12 if location else 0) + min(18, transaction * 3) - min(40, seller_hits * 8))
+    credibility = min(100, 48 + personal_hits * 6 + (15 if budget else 0) + (12 if len(text) > 500 else 0) + (6 if item.get("author") else 0) - min(35, seller_hits * 9))
     fit = 55 + (15 if location else 0) + (10 if budget else 0)
     if "golden visa" in text or "residency by investment" in text:
         fit += 5
@@ -153,9 +167,9 @@ def buyer_scores(item):
         return 0, 0, 0, "COLD"
     if intent >= 82 and credibility >= 72 and fit >= 65:
         label = "HOT"
-    elif intent >= 60 and credibility >= 60 and fit >= 50:
+    elif intent >= 60 and credibility >= 62 and fit >= 50:
         label = "WARM"
-    elif intent >= 40:
+    elif intent >= 45:
         label = "REVIEW"
     else:
         label = "COLD"
@@ -164,6 +178,8 @@ def buyer_scores(item):
 
 def keep_candidate(item):
     text = text_of(item)
+    if item.get("source") == "Google News":
+        return False
     if contains_any(text, NEGATIVE_PHRASES):
         return False
     seller_hits = sum(1 for p in EXCLUDE_PHRASES if p.lower() in text)
@@ -219,6 +235,32 @@ def queries_for(markets):
     return queries
 
 
+def exa_priority_queries(markets):
+    # PAID SEARCH is deliberately much smaller than the free-source query matrix.
+    phrases = {
+        "north_cyprus": "North Cyprus property buyer looking to buy apartment budget forum expat Reddit Telegram",
+        "turkey": "Turkey property buyer looking to buy apartment budget Turkish expat forum Reddit",
+        "montenegro": "Montenegro property buyer looking to buy apartment budget expat forum Reddit Russian",
+        "greece": "Greece Golden Visa property buyer budget expat forum Reddit",
+        "portugal": "Portugal Golden Visa property buyer budget expat forum Reddit",
+        "spain": "Spain property buyer relocation budget expat forum Reddit",
+        "italy": "Italy property buyer relocation budget expat forum Reddit",
+        "cyprus": "Cyprus property buyer relocation budget expat forum Reddit",
+        "germany": "Germany property buyer expat budget forum Reddit",
+        "netherlands": "Netherlands property buyer expat budget forum Reddit",
+        "belgium": "Belgium property buyer expat budget forum Reddit",
+        "france": "France property buyer expat budget forum Reddit",
+        "lithuania": "Lithuania property buyer expat budget forum Reddit",
+        "russia": "Russian buyer property abroad budget Cyprus Greece Montenegro Europe forum Telegram",
+        "kazakhstan": "Kazakhstan buyer property abroad budget Europe Cyprus Montenegro forum Telegram",
+        "uk": "UK buyer property abroad budget Cyprus Spain Portugal Montenegro expat forum Reddit",
+        "poland": "Poland property buyer abroad budget expat forum Reddit",
+        "czech_republic": "Czech buyer property abroad budget expat forum Reddit",
+        "austria": "Austria buyer property abroad budget expat forum Reddit",
+    }
+    return [phrases[m] for m in markets if m in phrases][:EXA_MAX_CALLS]
+
+
 def firestore_client():
     raw = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
     if not raw:
@@ -247,8 +289,9 @@ def run():
     queries = queries_for(markets)
     cutoff = started - timedelta(hours=LOOKBACK_HOURS)
 
+    # PHASE 1: free/low-cost discovery only.
     for i, query in enumerate(queries, 1):
-        print(f"[{i}/{len(queries)}] {query}")
+        print(f"FREE [{i}/{len(queries)}] {query}")
         batches = []
         try:
             batches.extend(reddit_search(query))
@@ -258,40 +301,60 @@ def run():
             batches.extend(google_news(query))
         except Exception as exc:
             print("NEWS_ERROR", exc)
-        try:
-            batches.extend(exa_search(query))
-        except Exception as exc:
-            print("EXA_ERROR", exc)
 
         for item in batches:
             key = dedupe_key(item)
             if key in seen:
                 continue
             seen.add(key)
-
             published = parse_dt(item.get("published"))
             if published and published < cutoff:
                 continue
             if not keep_candidate(item):
                 continue
-
             market = market_for(text_of(item))
             intent, credibility, fit, label = buyer_scores(item)
             if label not in ("HOT", "WARM"):
                 continue
-
-            item.update({
-                "market": market,
-                "intent_score": intent,
-                "credibility_score": credibility,
-                "market_fit_score": fit,
-                "classification": label,
-                "route_to": route_for(market),
-                "scanned_at": started.isoformat(),
-            })
+            item.update({"market": market, "intent_score": intent, "credibility_score": credibility,
+                         "market_fit_score": fit, "classification": label, "route_to": route_for(market),
+                         "scanned_at": started.isoformat()})
             leads.append(item)
-
         time.sleep(0.2)
+
+    # PHASE 2: paid Exa discovery with a hard per-run cap.
+    exa_queries = exa_priority_queries(markets)
+    print(f"EXA_BUDGET_GUARD max_calls={EXA_MAX_CALLS} scheduled={len(exa_queries)}")
+    exa_calls = 0
+    for query in exa_queries:
+        if exa_calls >= EXA_MAX_CALLS:
+            print("EXA_BUDGET_GUARD reached; no more paid calls.")
+            break
+        exa_calls += 1
+        print(f"EXA [{exa_calls}/{len(exa_queries)}] {query}")
+        try:
+            batches = exa_search(query)
+        except Exception as exc:
+            print("EXA_ERROR", exc)
+            continue
+        for item in batches:
+            key = dedupe_key(item)
+            if key in seen:
+                continue
+            seen.add(key)
+            published = parse_dt(item.get("published"))
+            if published and published < cutoff:
+                continue
+            if not keep_candidate(item):
+                continue
+            market = market_for(text_of(item))
+            intent, credibility, fit, label = buyer_scores(item)
+            if label not in ("HOT", "WARM"):
+                continue
+            item.update({"market": market, "intent_score": intent, "credibility_score": credibility,
+                         "market_fit_score": fit, "classification": label, "route_to": route_for(market),
+                         "scanned_at": started.isoformat()})
+            leads.append(item)
 
     leads.sort(key=lambda x: (x["classification"] == "HOT", x["intent_score"], x["credibility_score"], x["market_fit_score"]), reverse=True)
 
@@ -302,11 +365,13 @@ def run():
             ref = db.collection(COLLECTION).document(hashlib.sha1((lead.get("url") or lead.get("title", "")).encode()).hexdigest())
             batch.set(ref, lead, merge=True)
         scan_ref = db.collection(SCAN_LOG_COLLECTION).document(started.strftime("%Y%m%d%H%M%S"))
-        batch.set(scan_ref, {"started_at": started.isoformat(), "finished_at": now_utc().isoformat(), "queries": len(queries), "unique_candidates": len(seen), "hot_warm": len(leads)})
+        batch.set(scan_ref, {"started_at": started.isoformat(), "finished_at": now_utc().isoformat(),
+                             "free_queries": len(queries), "exa_calls": exa_calls,
+                             "unique_candidates": len(seen), "hot_warm": len(leads)})
         batch.commit()
 
     if leads:
-        lines = [f"BAY-S WORLD RADAR — {len(leads)} HOT/WARM buyer(s)"]
+        lines = [f"BAY-S WORLD RADAR — {len(leads)} HOT/WARM buyer(s) | Exa calls: {exa_calls}"]
         for lead in leads[:10]:
             lines.append(f"{lead['classification']} | {lead['market']} | I:{lead['intent_score']} C:{lead['credibility_score']} F:{lead['market_fit_score']} | {lead.get('title','')[:140]} | {lead.get('url','')}")
         notify_telegram("\n".join(lines))
