@@ -32,26 +32,43 @@ jobs:
           info = json.loads(raw)
           creds = service_account.Credentials.from_service_account_info(info)
           db = firestore.Client(credentials=creds, project=info.get('project_id'))
-          scans = db.collection('bay_s_world_scans').order_by('started_at', direction=firestore.Query.DESCENDING).limit(1).stream()
-          scan_list = list(scans)
+
+          scans_ref = db.collection('bay_s_world_scans')
+          scan_list = list(scans_ref.order_by('started_at', direction=firestore.Query.DESCENDING).limit(1).stream())
           if not scan_list:
               raise SystemExit('NO_SCAN_FOUND')
 
           scan = scan_list[0]
           meta = scan.to_dict() or {}
           scan_id = scan.id
+          started_at = meta.get('started_at','')
+
           print(f'LATEST_SCAN_ID={scan_id}')
-          print(f'LATEST_SCAN_STARTED={meta.get("started_at","")}')
+          print(f'LATEST_SCAN_STARTED={started_at}')
           print(f'LATEST_SCAN_CANDIDATES={meta.get("unique_candidates",0)}')
           print(f'LATEST_SCAN_HOT_WARM={meta.get("hot_warm",0)}')
           print(f'LATEST_SCAN_EXA_CALLS={meta.get("exa_calls",0)}')
           print(f'FILTER_STATS={json.dumps(meta.get("filter_stats",{}), ensure_ascii=False)}')
 
+          # Preferred storage: scan-specific subcollection.
           leads = []
           for doc in scan.reference.collection('leads').stream():
               d = doc.to_dict() or {}
               d['_id'] = doc.id
               leads.append(d)
+
+          storage_mode = 'scan_subcollection'
+
+          # Backward-compatible fallback for scans created before the subcollection model.
+          if not leads and started_at:
+              legacy = []
+              for doc in db.collection('bay_s_world_leads').stream():
+                  d = doc.to_dict() or {}
+                  if d.get('scanned_at') == started_at and d.get('classification') in ('HOT','WARM'):
+                      d['_id'] = doc.id
+                      legacy.append(d)
+              leads = legacy
+              storage_mode = 'legacy_top_level_by_scanned_at'
 
           leads.sort(key=lambda d: (
               d.get('classification') == 'HOT',
@@ -60,7 +77,9 @@ jobs:
               d.get('market_fit_score',0)
           ), reverse=True)
 
+          print(f'LEAD_STORAGE_MODE={storage_mode}')
           print(f'CURRENT_SCAN_LEADS_FOUND={len(leads)}')
+
           for i, d in enumerate(leads[:20], 1):
               print('\n===== LEAD', i, '=====')
               for key in [
