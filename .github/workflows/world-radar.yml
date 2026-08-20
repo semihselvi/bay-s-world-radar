@@ -3,13 +3,13 @@ name: BAY-S World Radar
 on:
   workflow_dispatch:
   schedule:
-    # 06:00 UTC = 09:00 Turkey time (UTC+3)
-    - cron: "0 6 * * *"
+    # 06:07 UTC = 09:07 Turkey time (UTC+3). Avoid top-of-hour GitHub schedule congestion.
+    - cron: "7 6 * * *"
 
 jobs:
   world-radar:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -31,6 +31,7 @@ jobs:
           python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py telegram_hybrid_engine.py source_registry.py world_hard_filters.py
 
       - name: Run BAY-S World Radar
+        timeout-minutes: 18
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -44,7 +45,25 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
-          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "120"
-          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "40"
+          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "60"
+          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "25"
         run: |
           python telegram_hybrid_engine.py
+
+      - name: Notify Telegram on radar failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os, requests
+          token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+          chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+          if token and chat_id:
+              text = "⚠️ BAY-S WORLD RADAR çalışırken hata oluştu. GitHub Actions logunu kontrol edin."
+              r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=15)
+              print("FAILURE_TELEGRAM_STATUS", r.status_code)
+          else:
+              print("FAILURE_TELEGRAM_DISABLED missing token/chat id")
+          PY
