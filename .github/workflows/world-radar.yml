@@ -3,7 +3,7 @@ name: BAY-S World Radar
 on:
   workflow_dispatch:
   schedule:
-    # 06:07 UTC = 09:07 Turkey time (UTC+3). Avoid top-of-hour GitHub schedule congestion.
+    # 06:07 UTC = 09:07 Turkey time (UTC+3)
     - cron: "7 6 * * *"
 
 jobs:
@@ -29,6 +29,38 @@ jobs:
       - name: Syntax check
         run: |
           python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py telegram_hybrid_engine.py source_registry.py world_hard_filters.py
+
+      - name: Preflight required secrets
+        env:
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
+        run: |
+          python - <<'PY'
+          import os, sys
+          required = [
+              "EXA_API_KEY",
+              "FIREBASE_SERVICE_ACCOUNT_JSON",
+              "TELEGRAM_BOT_TOKEN",
+              "TELEGRAM_CHAT_ID",
+              "TELEGRAM_API_ID",
+              "TELEGRAM_API_HASH",
+              "TELEGRAM_STRING_SESSION",
+          ]
+          missing = [name for name in required if not os.getenv(name, "").strip()]
+          print("SECRET_PREFLIGHT")
+          for name in required:
+              print(f"  {name}: {'OK' if name not in missing else 'MISSING'}")
+          if missing:
+              print("MISSING_SECRETS=" + ",".join(missing))
+              print("Radar stopped BEFORE Exa calls, so no paid scan was used.")
+              sys.exit(2)
+          print("SECRET_PREFLIGHT_OK")
+          PY
 
       - name: Run BAY-S World Radar
         timeout-minutes: 18
