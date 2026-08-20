@@ -2,7 +2,6 @@ import os
 import json
 import html
 import hashlib
-import xml.etree.ElementTree as ET
 from datetime import timedelta
 from urllib.parse import urljoin, urlparse
 
@@ -18,9 +17,13 @@ from source_registry import (
     EXA_GAPFILL_DOMAINS,
 )
 
-REDDIT_MAX_ENTRIES = int(os.getenv("WORLD_REDDIT_MAX_ENTRIES", "50"))
 DIRECT_LINK_LIMIT = int(os.getenv("WORLD_DIRECT_LINK_LIMIT", "12"))
 EXA_FALLBACK_CALLS = min(int(os.getenv("WORLD_EXA_FALLBACK_CALLS", "2")), 2)
+
+SKIP_URL_PARTS = (
+    "upload.php", "/members/", "/member/", "email-protection", "/login", "/register",
+    "/profile", "/search", "/privacy", "/terms", "/contact", "javascript:", "mailto:"
+)
 
 
 def clean_text(value):
@@ -28,51 +31,10 @@ def clean_text(value):
 
 
 def reddit_direct():
-    # One request for all researched subreddits. No US/Australia property-market subs.
-    group = "+".join(REDDIT_SUBREDDITS)
-    url = f"https://www.reddit.com/r/{group}/new/.rss?limit={min(REDDIT_MAX_ENTRIES, 100)}"
-    items = []
-    try:
-        response = main.SESSION.get(
-            url,
-            timeout=20,
-            headers={
-                "Accept": "application/atom+xml,application/rss+xml,text/xml;q=0.9,*/*;q=0.8",
-                "User-Agent": "BAY-S-World-Radar/2.2 daily-public-feed-scan",
-            },
-        )
-        if response.status_code == 429:
-            print(f"REDDIT_RATE_LIMIT 429 retry_after={response.headers.get('Retry-After','unknown')} SKIP")
-            return []
-        if response.status_code != 200:
-            print(f"DIRECT_ERROR Reddit {response.status_code}")
-            return []
-
-        root = ET.fromstring(response.content)
-        ns = {"a": "http://www.w3.org/2005/Atom"}
-        for entry in root.findall("a:entry", ns)[:REDDIT_MAX_ENTRIES]:
-            link = ""
-            for node in entry.findall("a:link", ns):
-                href = node.attrib.get("href", "")
-                if href and node.attrib.get("rel", "alternate") in ("", "alternate"):
-                    link = href
-                    break
-            if not link:
-                continue
-            items.append({
-                "source": "Reddit",
-                "url": link,
-                "title": clean_text(entry.findtext("a:title", default="", namespaces=ns)),
-                "text": clean_text(entry.findtext("a:content", default="", namespaces=ns) or entry.findtext("a:summary", default="", namespaces=ns)),
-                "published": entry.findtext("a:published", default="", namespaces=ns) or entry.findtext("a:updated", default="", namespaces=ns),
-                "author": clean_text(entry.findtext("a:author/a:name", default="", namespaces=ns)),
-                "source_bucket": "direct_reddit_researched",
-            })
-    except Exception as exc:
-        print("DIRECT_EXCEPTION Reddit", exc)
-
-    print(f"REDDIT_REQUESTS used=1 entries={len(items)} subs={len(REDDIT_SUBREDDITS)}")
-    return items
+    # GitHub Actions receives 403 from Reddit RSS. Do not waste requests here.
+    # Reddit is covered by the Exa gap-fill using only the researched subreddits/topics.
+    print(f"REDDIT_DIRECT_DISABLED use_exa_gapfill subs={len(REDDIT_SUBREDDITS)}")
+    return []
 
 
 def extract_page_item(url, source_name, title="", source_bucket="direct_topic", forced_market=""):
@@ -116,9 +78,32 @@ def extract_page_item(url, source_name, title="", source_bucket="direct_topic", 
         return None
 
 
+def _looks_like_discussion_link(source_name, href, title):
+    low = href.lower()
+    t = title.lower()
+    if any(part in low for part in SKIP_URL_PARTS):
+        return False
+    if len(title) < 8:
+        return False
+    if source_name == "MoneySavingExpert":
+        return "/discussion/" in low
+    if source_name.startswith("Expat.com"):
+        return "/forum/" in low and any(ch.isdigit() for ch in low)
+    if source_name == "PIM.be":
+        return "topic-" in low
+    if source_name == "Forum AWD Overseas Property":
+        return "viewtopic.php" in low
+    if source_name == "Forum-EU":
+        return "/topic/" in low
+    if source_name == "Investisseurs Heureux":
+        return "/t" in low or "topic" in low
+    if source_name == "MontenegroExpats":
+        return any(k in t for k in ("property", "real estate", "buy", "invest", "resid", "expat"))
+    return True
+
+
 def scrape_index_source(source):
     if source.get("discovery_only"):
-        # Portals/listing sites are monitored for discovery only, never accepted as buyer leads.
         print(f"DISCOVERY_ONLY {source['name']} {source['url']}")
         return []
 
@@ -134,9 +119,9 @@ def scrape_index_source(source):
             href = urljoin(response.url, anchor["href"])
             host = urlparse(href).netloc.lower().replace("www.", "")
             title = clean_text(anchor.get_text(" ", strip=True))
-            if source["domain"].replace("www.", "") not in host or len(title) < 8:
+            if source["domain"].replace("www.", "") not in host:
                 continue
-            if href == response.url:
+            if href == response.url or not _looks_like_discussion_link(source["name"], href, title):
                 continue
             if href not in [x[0] for x in links]:
                 links.append((href, title))
@@ -198,7 +183,7 @@ def direct_discovery():
 
     reddit = reddit_direct()
     all_items.extend(reddit)
-    counts["Reddit"] = len(reddit)
+    counts["Reddit direct"] = len(reddit)
 
     for source in DIRECT_INDEX_SOURCES:
         found = scrape_index_source(source)
@@ -211,7 +196,7 @@ def direct_discovery():
 
     telegram = telegram_public_channels()
     all_items.extend(telegram)
-    counts["Telegram"] = len(telegram)
+    counts["Telegram public"] = len(telegram)
 
     print("DIRECT_COUNTS", json.dumps(counts, ensure_ascii=False))
     return all_items, counts
@@ -220,8 +205,9 @@ def direct_discovery():
 def exa_gapfill():
     if EXA_FALLBACK_CALLS <= 0:
         return [], 0
+    researched_reddit = " ".join(f"r/{x}" for x in REDDIT_SUBREDDITS)
     queries = [
-        "past 7 days real person first-person property buyer or Golden Visa discussion in North Cyprus Turkey Montenegro Greece Portugal Spain Italy Cyprus UK Germany France Netherlands Belgium Austria Poland Czechia; budget deposit mortgage viewing offer relocation; exclude listings agents developers guides news",
+        f"past 7 days real person first-person property buyer or Golden Visa discussion; prioritize Reddit {researched_reddit}; North Cyprus Turkey Montenegro Greece Portugal Spain Italy Cyprus UK Germany France Netherlands Belgium Austria Poland Czechia; budget deposit mortgage viewing offer relocation; exclude listings agents developers guides news",
         "past 7 days Russian or Kazakh person wants to buy property abroad: хочу купить ищу квартиру ищу дом недвижимость за рубежом бюджет ипотека взнос просмотр переезд ВНЖ; Северный Кипр Черногория Greece Turkey Portugal Spain Italy Germany France; exclude ads agents developers",
     ]
     items = []
@@ -249,21 +235,18 @@ def run():
         if key in seen:
             continue
         seen.add(key)
-
         published = world_engine.resolved_published(item)
         item["verified_published"] = published.isoformat() if published else ""
         keep, reason = main.keep_candidate(item, cutoff)
         if not keep:
             stats[reason] = stats.get(reason, 0) + 1
             continue
-
         market = item.get("forced_market") or main.market_for(main.text_of(item), item.get("source_bucket", ""), item.get("url", ""), item.get("title", ""))
         item["market"] = market
         intent, credibility, fit, label = main.buyer_scores(item)
         if label not in ("HOT", "WARM"):
             stats["review_or_cold"] = stats.get("review_or_cold", 0) + 1
             continue
-
         item.update({
             "intent_score": intent,
             "credibility_score": credibility,
@@ -287,7 +270,7 @@ def run():
             docid = hashlib.sha1((lead.get("url") or lead.get("title", "")).encode()).hexdigest()
             batch.set(ref.collection("leads").document(docid), lead, merge=True)
         batch.set(ref, {
-            "engine": "hybrid_researched_sources",
+            "engine": "hybrid_researched_sources_v2",
             "started_at": started.isoformat(),
             "finished_at": main.now_utc().isoformat(),
             "direct_counts": direct_counts,
@@ -298,7 +281,7 @@ def run():
         }, merge=True)
         batch.commit()
 
-    print(f"SCAN_COMPLETE engine=hybrid_researched_sources candidates={len(seen)} hot_warm={len(leads)} exa_calls={exa_calls}")
+    print(f"SCAN_COMPLETE engine=hybrid_researched_sources_v2 candidates={len(seen)} hot_warm={len(leads)} exa_calls={exa_calls}")
     print("FILTER_STATS", json.dumps(stats, ensure_ascii=False))
 
     if leads:
