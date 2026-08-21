@@ -27,13 +27,25 @@ def _sender_name(sender):
     return " ".join(x for x in (first, last, title) if x).strip()
 
 
+def _csv_env(name):
+    return [x.strip().lower() for x in os.getenv(name, "").split(",") if x.strip()]
+
+
 def _allowed_title(title):
-    raw = os.getenv("WORLD_TELEGRAM_MEMBER_CHATS", "").strip()
-    if not raw:
-        return True
-    wanted = [x.strip().lower() for x in raw.split(",") if x.strip()]
     t = (title or "").lower()
-    return any(x in t for x in wanted)
+
+    # Existing explicit allow-list remains authoritative when configured.
+    wanted = _csv_env("WORLD_TELEGRAM_MEMBER_CHATS")
+    if wanted and not any(x in t for x in wanted):
+        return False
+
+    # Optional broad title keywords let a dedicated shard scan only likely
+    # North-Cyprus groups without changing the normal all-groups radar.
+    keywords = _csv_env("WORLD_TELEGRAM_MEMBER_TITLE_KEYWORDS")
+    if keywords and not any(x in t for x in keywords):
+        return False
+
+    return True
 
 
 async def _collect():
