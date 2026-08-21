@@ -49,6 +49,9 @@ main.keep_candidate = north_cyprus_focus.keep_candidate
 main.buyer_scores = north_cyprus_focus.buyer_scores
 
 _original_market_for = main.market_for
+_original_notify = main.notify_telegram
+_original_mark_notified = shard_runner.mark_notified
+_CAPTURED_NEW_LEADS = []
 
 
 def north_cyprus_market_for(text, bucket_name="", url="", title=""):
@@ -58,7 +61,32 @@ def north_cyprus_market_for(text, bucket_name="", url="", title=""):
     return "north_cyprus" if market == "unknown" else market
 
 
+def mark_and_capture(db, lead_key, lead):
+    _original_mark_notified(db, lead_key, lead)
+    _CAPTURED_NEW_LEADS.append(lead)
+
+
+def hunter_notify(default_message):
+    if not _CAPTURED_NEW_LEADS:
+        _original_notify(default_message)
+        return
+
+    lines = [f"🔥 BAY-S NORTH CYPRUS HUNTER | {len(_CAPTURED_NEW_LEADS)} YENİ LEAD"]
+    for lead in _CAPTURED_NEW_LEADS[:8]:
+        author = lead.get("author", "") or "kullanıcı"
+        place = lead.get("telegram_chat", "") or lead.get("title", "") or lead.get("source", "")
+        excerpt = " ".join(str(lead.get("text", "")).split())[:240]
+        lines.append(
+            f"\n{lead.get('classification','WARM')} | {author} | {place[:80]}\n"
+            f"I{lead.get('intent_score',0)} C{lead.get('credibility_score',0)} F{lead.get('market_fit_score',0)}\n"
+            f"{excerpt}\n{lead.get('url','')}"
+        )
+    _original_notify("\n".join(lines))
+
+
 main.market_for = north_cyprus_market_for
+main.notify_telegram = hunter_notify
+shard_runner.mark_notified = mark_and_capture
 
 if __name__ == "__main__":
     os.environ["WORLD_RADAR_SHARD"] = "north_cyprus_hunter"
