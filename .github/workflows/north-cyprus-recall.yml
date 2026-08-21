@@ -1,0 +1,68 @@
+name: BAY-S North Cyprus Recall
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Turkey time UTC+3. Staggered between the main Hunter pulses.
+    - cron: "17 5 * * *"                  # 08:17 daily 72h catch-up
+    - cron: "17 7,9,11,13,15,17,19 * * *" # 10:17..22:17 high-recall pulses
+
+concurrency:
+  group: bay-s-north-cyprus-recall-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  north-cyprus-recall:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Syntax check
+        run: |
+          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py
+
+      - name: Run free high-recall North Cyprus scan
+        timeout-minutes: 18
+        env:
+          WORLD_RADAR_SHARD: north_cyprus_hunter
+          WORLD_LOOKBACK_HOURS: ${{ github.event_name == 'workflow_dispatch' && '72' || (github.event.schedule == '17 5 * * *' && '72' || '3') }}
+          WORLD_SHARD_EXA_CALLS: "0"
+          WORLD_DIRECT_LINK_LIMIT: "40"
+          WORLD_CATALOG_CHANNEL_LIMIT: "25"
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
+          WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
+          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "140"
+          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "50"
+        run: python north_cyprus_recall.py
+
+      - name: Notify recall failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os, requests
+          token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+          chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+          if token and chat_id:
+              requests.post(
+                  f"https://api.telegram.org/bot{token}/sendMessage",
+                  json={"chat_id": chat_id, "text": "⚠️ BAY-S NORTH CYPRUS RECALL taraması hata verdi. GitHub Actions logunu kontrol edin."},
+                  timeout=15,
+              )
+          PY
