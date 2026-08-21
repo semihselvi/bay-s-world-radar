@@ -1,8 +1,86 @@
+import hashlib
 import os
 
 import main
 import shard_runner
+import source_crawler_v2
 import north_cyprus_focus
+
+DYNAMIC_SOURCE_COLLECTION = "bay_s_dynamic_sources"
+
+
+def _load_dynamic_channels(limit=40):
+    db = main.firestore_client()
+    if not db:
+        return set()
+    channels = set()
+    try:
+        docs = (
+            db.collection(DYNAMIC_SOURCE_COLLECTION)
+            .where("market", "==", "north_cyprus")
+            .where("type", "==", "telegram_public")
+            .where("status", "==", "active")
+            .limit(limit)
+            .stream()
+        )
+        for doc in docs:
+            data = doc.to_dict() or {}
+            username = str(data.get("username", "")).strip().lstrip("@")
+            if username:
+                channels.add(username)
+    except Exception as exc:
+        # A composite index may not exist yet. Fall back to a simpler query.
+        print("DYNAMIC_SOURCE_LOAD_FALLBACK", exc)
+        try:
+            for doc in db.collection(DYNAMIC_SOURCE_COLLECTION).limit(100).stream():
+                data = doc.to_dict() or {}
+                if data.get("market") != "north_cyprus" or data.get("type") != "telegram_public" or data.get("status") != "active":
+                    continue
+                username = str(data.get("username", "")).strip().lstrip("@")
+                if username:
+                    channels.add(username)
+                if len(channels) >= limit:
+                    break
+        except Exception as inner:
+            print("DYNAMIC_SOURCE_LOAD_ERROR", inner)
+    print(f"DYNAMIC_TELEGRAM_LOADED count={len(channels)}")
+    return channels
+
+
+def _persist_channels(channels, discovered_by):
+    if not channels:
+        return
+    db = main.firestore_client()
+    if not db:
+        return
+    now = main.now_utc().isoformat()
+    batch = db.batch()
+    count = 0
+    for username in sorted(set(channels)):
+        username = str(username).strip().lstrip("@")
+        if not username:
+            continue
+        doc_id = hashlib.sha1(username.lower().encode("utf-8")).hexdigest()
+        batch.set(
+            db.collection(DYNAMIC_SOURCE_COLLECTION).document(doc_id),
+            {
+                "type": "telegram_public",
+                "market": "north_cyprus",
+                "username": username,
+                "url": f"https://t.me/{username}",
+                "status": "active",
+                "discovered_by": discovered_by,
+                "last_seen": now,
+            },
+            merge=True,
+        )
+        count += 1
+    if count:
+        batch.commit()
+        print(f"DYNAMIC_TELEGRAM_SAVED count={count} by={discovered_by}")
+
+
+_dynamic_channels = _load_dynamic_channels()
 
 # Dedicated North Cyprus shard. It uses a wider buyer-intent net than the general
 # World Radar while keeping seller/rental filtering strict.
@@ -17,7 +95,7 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
         "snchubTalkroom",
         "meetinnorthcyprus",
         "northcyprus29",
-    },
+    } | _dynamic_channels,
     "catalogs": {"TeleGid Cyprus", "SNC Community Hub"},
     "member": True,
     "exa_calls": 1,
@@ -43,6 +121,19 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
     ],
     "reddit_focus": ["NorthCyprus", "cyprus", "expats", "ExpatFIRE", "AmerExit"],
 }
+
+# Persist channels found by live catalogs so tomorrow's scan does not depend on
+# discovering the same link again.
+_original_discover = source_crawler_v2.discover_public_telegram_channels
+
+
+def discover_and_persist(catalog_names=None):
+    channels = _original_discover(catalog_names)
+    _persist_channels(channels, "catalog")
+    return channels
+
+
+source_crawler_v2.discover_public_telegram_channels = discover_and_persist
 
 # Override only for this process. Other World Radar shards keep their current filters.
 main.keep_candidate = north_cyprus_focus.keep_candidate
