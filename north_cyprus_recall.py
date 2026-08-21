@@ -16,7 +16,17 @@ PROJECT_CONTEXT_PATTERNS = [
     r"\bgrand sapphire\b", r"\bgrand sapphire blu\b", r"\broyal sun\b",
     r"\briverside life\b", r"\bfour seasons life\b", r"\bcourtyard long beach\b",
     r"\bmaldives homes\b", r"\bk'?saba\b", r"\blagoon verde\b",
-    r"\bhabitat\b", r"\be[- ]?volve\b", r"\belysium\b", r"\bisatis\b",
+    r"\bhabitat\b", r"\be[- ]?volve\b",
+
+    # Isatis Construction - official project family. Buyers often mention only
+    # the project name, phase or developer in Telegram/Reddit requests.
+    r"\bisatis\b", r"\bisatis construction\b", r"\bisatis in[şs]aat\b",
+    r"\bisatis elysium\b", r"\belysium\s*2\b", r"\belysium ii\b", r"\belysium\b",
+    r"\bisatis hillside\b", r"\bhillside isatis\b",
+    r"\bisatis infinity\b", r"\binfinity isatis\b",
+    r"\bisatis fiora\b", r"\bfiora isatis\b", r"\bfiora\b",
+    r"\bisatis orchard\b", r"\borchard isatis\b", r"\bisatis orchard complex\b",
+
     r"\bnorthernland\b", r"\bdovec\b", r"\bdöveç\b", r"\bnoyanlar\b",
     r"\blong beach club resort\b", r"\bpark residence\b",
 ]
@@ -29,16 +39,20 @@ EXTRA_REQUEST_PATTERNS = [
     r"\bhangi projeyi öner", r"\bhangi projeyi oner", r"\bhangi firma güvenilir\b",
     r"\bhangi firma guvenilir\b", r"\bkaç para\b", r"\bkac para\b",
     r"\bsterline ne al", r"\bsterlin[e]? kadar\b", r"\bpe[şs]inatla ne al",
+    r"\bisatis(?:te|'te|’te)? .*var m[ıi]\b", r"\belysium\s*2 .*var m[ıi]\b",
+    r"\bfiora .*var m[ıi]\b", r"\bisatis .*fiyat\b", r"\belysium .*fiyat\b",
     # English terse requests
     r"\bneed (?:a |an )?(?:studio|flat|apartment|house|villa|1\+1|2\+1|3\+1)\b",
     r"\bwanted[: ]+(?:studio|flat|apartment|house|villa|1\+1|2\+1|3\+1)\b",
     r"\banyone selling\b", r"\bany owner selling\b", r"\bowner sale\b",
     r"\blooking for resale\b", r"\bany resale\b", r"\bwhat(?:'s| is) available\b",
     r"\banything (?:available|around|under)\b", r"\boptions? under\b",
+    r"\bany isatis resale\b", r"\bisatis .*available\b", r"\belysium\s*2 .*available\b",
     # Russian terse requests
     r"\bнужна квартир", r"\bнужен апартамент", r"\bнужна вилл", r"\bкто продает\b",
     r"\bот собственника\b", r"\bищу вторичк", r"\bесть варианты\b",
     r"\bкакие варианты\b", r"\bчто есть до\b", r"\bчто есть за\b",
+    r"\bisatis .*есть\b", r"\belysium\s*2 .*есть\b",
     # Arabic buyer intent
     r"أريد شراء", r"ابحث عن شقة", r"أبحث عن شقة", r"ابحث عن عقار", r"أبحث عن عقار",
     r"أبحث عن فيلا", r"اريد شقة", r"أريد شقة", r"ميزانيتي",
