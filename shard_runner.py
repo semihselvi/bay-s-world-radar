@@ -6,54 +6,112 @@ from datetime import timedelta, datetime, timezone
 import main
 import world_engine
 import hybrid_engine
+import source_crawler_v2
 from telegram_member_reader import collect_member_telegram
-from source_registry import DIRECT_INDEX_SOURCES, DIRECT_TOPIC_SOURCES, TELEGRAM_PUBLIC_CHANNELS
+from source_registry import DIRECT_INDEX_SOURCES, DIRECT_TOPIC_SOURCES, REDDIT_SUBREDDITS
 
 SHARD = os.getenv("WORLD_RADAR_SHARD", "telegram_member").strip().lower()
 
 SHARDS = {
     "north_cyprus_cis": {
-        "index_names": {"Forum AWD Overseas Property", "Forum-EU"},
-        "topic_names": {"Forum-EU Portugal Golden Visa"},
-        "telegram": {"cyprusy", "velesproperty", "btinvestnorthcyprus", "sadeceemlakoto", "prian_property", "hayatestate_online", "astonspassport"},
+        "index_names": {
+            "Expat.com Turkey",
+            "Forum AWD Overseas Property",
+            "Forum-EU",
+        },
+        "topic_names": set(),
+        "telegram": {
+            "cyprusy", "velesproperty", "btinvestnorthcyprus", "sadeceemlakoto",
+            "prian_property", "hayatestate_online", "astonspassport",
+        },
+        "catalogs": {"TeleGid Cyprus"},
         "member": False,
         "exa_calls": 0,
         "exa_query": "",
         "exa_domains": [],
+        "reddit_focus": [],
     },
     "golden_south": {
-        "index_names": {"Expat.com Italy", "Expat.com Cyprus", "Expat.com Montenegro", "MontenegroExpats"},
-        "topic_names": {"FinanzaOnline", "Propit", "Forum-EU Portugal Golden Visa"},
+        "index_names": {
+            "Expat.com Greece", "Expat.com Portugal", "Expat.com Spain",
+            "Expat.com Italy", "Expat.com Cyprus", "Expat.com Montenegro",
+        },
+        "topic_names": set(),
         "telegram": {"VillaEdelweissMontenegro", "Montenegrosupreme", "indemochat"},
+        "catalogs": {"TeleGid Montenegro", "MontenegroExpats Communities"},
         "member": False,
         "exa_calls": 1,
-        "exa_query": "past 7 days real person first-person Golden Visa or property purchase discussion Greece Portugal Italy Montenegro Cyprus North Cyprus; wants to buy house apartment villa, budget deposit lawyer viewing offer residency; exclude listings agents developers guides news",
-        "exa_domains": ["reddit.com", "expatforum.com", "facebook.com", "internations.org", "meetup.com", "telegid.me", "tlgrm.ru"],
+        "exa_query": (
+            "past 7 days real person first-person Golden Visa, residency-by-investment, "
+            "relocation with purchase intent, or actual property purchase discussion in "
+            "Greece Portugal Spain Italy Montenegro Cyprus or North Cyprus; wants to buy "
+            "house apartment flat villa or investment property; budget deposit mortgage "
+            "lawyer viewing offer payment timing; exclude listings agents developers guides news"
+        ),
+        "exa_domains": [
+            "reddit.com", "expatforum.com", "facebook.com", "internations.org",
+            "meetup.com", "telegid.me", "tlgrm.ru", "forum.finanzaonline.com", "propit.it",
+        ],
+        "reddit_focus": [
+            "goldenvisa", "ExpatFIRE", "CitizenshipInvestment", "PortugalExpats",
+            "ItalyExpat", "montenegro", "cyprus", "greece", "askspain",
+        ],
     },
     "west_europe": {
-        "index_names": {"MoneySavingExpert", "Investisseurs Heureux", "PIM.be"},
-        "topic_names": {"Wertpapier-Forum", "AuswandererForum", "WiWi-TReFF", "Finary Community", "Tweakers", "AllesAmerika"},
+        "index_names": {
+            "MoneySavingExpert", "Expat.com Germany", "Expat.com France",
+            "Expat.com Netherlands", "Expat.com Belgium", "Investisseurs Heureux",
+            "Finary Immobilier", "PIM.be",
+        },
+        "topic_names": set(),
         "telegram": set(),
+        "catalogs": set(),
         "member": False,
         "exa_calls": 1,
-        "exa_query": "past 7 days real person first-person discussion about buying property abroad or investment property from UK Germany France Netherlands Belgium; budget deposit mortgage viewing offer relocation; Europe Golden Visa; exclude US Australia property markets, listings agents developers guides news",
-        "exa_domains": ["reddit.com", "expatforum.com", "moneysavingexpert.com", "investisseurs-heureux.fr", "pim.be", "finary.com", "tweakers.net", "wertpapier-forum.de", "auswandererforum.de"],
+        "exa_query": (
+            "past 7 days real person first-person discussion about buying property abroad, "
+            "investment property, second home or relocation with purchase intent from or in "
+            "UK Germany France Netherlands Belgium; budget deposit mortgage viewing offer "
+            "target area property type; Europe only; exclude US Australia property markets, "
+            "listings agents developers guides news"
+        ),
+        "exa_domains": [
+            "reddit.com", "expatforum.com", "auswandererforum.de", "wiwi-treff.de",
+            "tweakers.net", "wertpapier-forum.de", "forum.allesamerika.com", "investeerders.nl",
+        ],
+        "reddit_focus": ["expats", "AmerExit", "beleggen", "germany", "eupersonalfinance", "ExpatFIRE"],
+    },
+    "central_europe": {
+        "index_names": {
+            "Expat.com Austria", "Expat.com Switzerland", "Expat.com Poland",
+            "Expat.com Czech Republic", "Expat.com Lithuania",
+        },
+        "topic_names": set(),
+        "telegram": set(),
+        "catalogs": set(),
+        "member": False,
+        "exa_calls": 0,
+        "exa_query": "",
+        "exa_domains": [],
+        "reddit_focus": [],
     },
     "telegram_member": {
         "index_names": set(),
         "topic_names": set(),
         "telegram": set(),
+        "catalogs": set(),
         "member": True,
         "exa_calls": 0,
         "exa_query": "",
         "exa_domains": [],
+        "reddit_focus": [],
     },
 }
 
 
 def public_telegram_selected(channels):
     items = []
-    for channel in channels:
+    for channel in sorted(set(channels)):
         try:
             response = main.SESSION.get(f"https://t.me/s/{channel}", timeout=20)
             if response.status_code != 200:
@@ -84,28 +142,38 @@ def public_telegram_selected(channels):
 def collect_direct(spec):
     items = []
     counts = {}
+
     for source in DIRECT_INDEX_SOURCES:
         if source["name"] not in spec["index_names"]:
             continue
-        found = hybrid_engine.scrape_index_source(source)
+        found = source_crawler_v2.scrape_index_source(source)
         items.extend(found)
         counts[source["name"]] = len(found)
+
     for source in DIRECT_TOPIC_SOURCES:
         if source["name"] not in spec["topic_names"]:
             continue
-        item = hybrid_engine.extract_page_item(source["url"], source["name"], "", f"shard_{SHARD}_topic", source.get("market", ""))
+        item = source_crawler_v2.extract_page_item(
+            source["url"], source["name"], "", f"shard_{SHARD}_topic", source.get("market", "")
+        )
         if item:
             items.append(item)
             counts[source["name"]] = 1
         else:
             counts[source["name"]] = 0
-    tg = public_telegram_selected(spec["telegram"])
+
+    discovered_channels = source_crawler_v2.discover_public_telegram_channels(spec.get("catalogs", set()))
+    all_channels = set(spec["telegram"]) | set(discovered_channels)
+    tg = public_telegram_selected(all_channels)
     items.extend(tg)
     counts["Telegram Public"] = len(tg)
+    counts["Telegram Catalog Channels"] = len(discovered_channels)
+
     if spec["member"]:
         member = collect_member_telegram()
         items.extend(member)
         counts["Telegram Member"] = len(member)
+
     print("SHARD_DIRECT_COUNTS", SHARD, json.dumps(counts, ensure_ascii=False))
     return items, counts
 
@@ -116,8 +184,17 @@ def collect_exa(spec):
     calls = max(0, min(calls, 1))
     if not calls or not spec["exa_query"]:
         return [], 0
+
+    reddit_focus = spec.get("reddit_focus", [])
+    reddit_hint = ""
+    if reddit_focus:
+        allowed = [x for x in reddit_focus if x in REDDIT_SUBREDDITS]
+        if allowed:
+            reddit_hint = " Prioritize discussions in Reddit communities: " + ", ".join(f"r/{x}" for x in allowed) + "."
+
+    query = spec["exa_query"] + reddit_hint
     print(f"EXA_SHARD [{SHARD}] call=1")
-    items = world_engine.exa_search(spec["exa_query"], spec["exa_domains"])
+    items = world_engine.exa_search(query, spec["exa_domains"])
     for item in items:
         item["source_bucket"] = f"shard_{SHARD}_exa"
     return items, 1
@@ -161,6 +238,7 @@ def mark_notified(db, lead_key, lead):
 def run():
     if SHARD not in SHARDS:
         raise SystemExit(f"Unknown WORLD_RADAR_SHARD={SHARD}")
+
     spec = SHARDS[SHARD]
     started = main.now_utc()
     cutoff = started - timedelta(hours=main.LOOKBACK_HOURS)
@@ -175,18 +253,23 @@ def run():
         if key in seen:
             continue
         seen.add(key)
+
         published = world_engine.resolved_published(item)
         item["verified_published"] = published.isoformat() if published else ""
         keep, reason = main.keep_candidate(item, cutoff)
         if not keep:
             stats[reason] = stats.get(reason, 0) + 1
             continue
-        market = item.get("forced_market") or main.market_for(main.text_of(item), item.get("source_bucket", ""), item.get("url", ""), item.get("title", ""))
+
+        market = item.get("forced_market") or main.market_for(
+            main.text_of(item), item.get("source_bucket", ""), item.get("url", ""), item.get("title", "")
+        )
         item["market"] = market
         intent, credibility, fit, label = main.buyer_scores(item)
         if label not in ("HOT", "WARM"):
             stats["review_or_cold"] = stats.get("review_or_cold", 0) + 1
             continue
+
         item.update({
             "intent_score": intent,
             "credibility_score": credibility,
@@ -200,7 +283,11 @@ def run():
         leads.append(item)
 
     leads = list({main.dedupe_key(x): x for x in leads}.values())
-    leads.sort(key=lambda x: (x["classification"] == "HOT", x["intent_score"], x["credibility_score"], x["market_fit_score"]), reverse=True)
+    leads.sort(
+        key=lambda x: (x["classification"] == "HOT", x["intent_score"], x["credibility_score"], x["market_fit_score"]),
+        reverse=True,
+    )
+
     db = main.firestore_client()
     scan_id = f"{started.strftime('%Y%m%d%H%M%S')}_{SHARD}"
     if db:
@@ -210,7 +297,7 @@ def run():
             docid = hashlib.sha1((lead.get("url") or lead.get("title", "")).encode()).hexdigest()
             batch.set(ref.collection("leads").document(docid), lead, merge=True)
         batch.set(ref, {
-            "engine": "world_radar_sharded_v1",
+            "engine": "world_radar_sharded_v2_expanded",
             "shard": SHARD,
             "started_at": started.isoformat(),
             "finished_at": main.now_utc().isoformat(),
@@ -232,16 +319,32 @@ def run():
         new_leads.append(lead)
         mark_notified(db, lead_key, lead)
 
-    print(f"SHARD_COMPLETE shard={SHARD} candidates={len(seen)} hot_warm={len(leads)} new_to_notify={len(new_leads)} exa_calls={exa_calls}")
+    print(
+        f"SHARD_COMPLETE shard={SHARD} candidates={len(seen)} hot_warm={len(leads)} "
+        f"new_to_notify={len(new_leads)} exa_calls={exa_calls}"
+    )
     print("FILTER_STATS", json.dumps(stats, ensure_ascii=False))
 
     if new_leads:
-        lines = [f"BAY-S WORLD RADAR [{SHARD}] | {len(new_leads)} YENİ HOT/WARM | Aday: {len(seen)} | Exa: {exa_calls}"]
+        lines = [
+            f"BAY-S WORLD RADAR [{SHARD}] | {len(new_leads)} YENİ HOT/WARM | "
+            f"Aday: {len(seen)} | Exa: {exa_calls}"
+        ]
         for lead in new_leads[:10]:
-            lines.append(f"{lead['classification']} | {lead['market']} | {lead.get('source','')} | I{lead['intent_score']} C{lead['credibility_score']} F{lead['market_fit_score']} | {lead.get('title','')[:100]} | {lead.get('url','')}")
+            lines.append(
+                f"{lead['classification']} | {lead['market']} | {lead.get('source','')} | "
+                f"I{lead['intent_score']} C{lead['credibility_score']} F{lead['market_fit_score']} | "
+                f"{lead.get('title','')[:100]} | {lead.get('url','')}"
+            )
         main.notify_telegram("\n".join(lines))
     else:
-        main.notify_telegram(f"BAY-S WORLD RADAR [{SHARD}] tamamlandı.\nYeni HOT/WARM lead yok.\nİncelenen aday: {len(seen)}\nExa çağrısı: {exa_calls}\nTarama: son {main.LOOKBACK_HOURS} saat")
+        main.notify_telegram(
+            f"BAY-S WORLD RADAR [{SHARD}] tamamlandı.\n"
+            f"Yeni HOT/WARM lead yok.\n"
+            f"İncelenen aday: {len(seen)}\n"
+            f"Exa çağrısı: {exa_calls}\n"
+            f"Tarama: son {main.LOOKBACK_HOURS} saat"
+        )
 
 
 if __name__ == "__main__":
