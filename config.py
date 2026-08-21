@@ -8,7 +8,15 @@ EXA_NUM_RESULTS = int(os.getenv("WORLD_EXA_NUM_RESULTS", "15"))
 EXA_MAX_CALLS = int(os.getenv("WORLD_EXA_MAX_CALLS", "6"))
 
 MARKETS = {
-    "north_cyprus": ["North Cyprus", "Northern Cyprus", "Kuzey Kıbrıs", "Северный Кипр", "TRNC", "Iskele", "İskele", "Long Beach", "Kyrenia", "Girne", "Esentepe", "Lapta", "Yeniboğaziçi", "Famagusta", "Gazimağusa", "Tatlısu", "Bafra", "Boğaz", "Dipkarpaz"],
+    "north_cyprus": [
+        "North Cyprus", "Northern Cyprus", "NorthCyprus", "Kuzey Kıbrıs", "Kuzey Kibris",
+        "Северный Кипр", "Nordzypern", "TRNC", "KKTC", "Iskele", "İskele", "Yeni Iskele",
+        "Long Beach", "Kyrenia", "Girne", "Esentepe", "Lapta", "Yeniboğaziçi", "Yenibogazici",
+        "Famagusta", "Gazimağusa", "Gazimagusa", "Tatlısu", "Tatlisu", "Bafra", "Boğaz", "Bogaz",
+        "Dipkarpaz", "Bahçeli", "Bahceli", "Küçük Erenköy", "Kucuk Erenkoy", "Çatalköy", "Catalkoy",
+        "Alsancak", "Karşıyaka", "Karsiyaka", "Bellapais", "Beylerbeyi", "Ozanköy", "Ozankoy",
+        "Lefke", "Güzelyurt", "Guzelyurt", "Geçitkale", "Gecitkale"
+    ],
     "turkey": ["Turkey", "Türkiye", "Antalya", "Alanya", "Mersin", "Istanbul", "İstanbul", "Izmir", "İzmir", "Bodrum", "Fethiye", "Muğla"],
     "montenegro": ["Montenegro", "Budva", "Kotor", "Tivat", "Podgorica", "Bar", "Herceg Novi", "Karadağ", "Черногория"],
     "greece": ["Greece", "Athens", "Thessaloniki", "Crete", "Rhodes", "Corfu", "Piraeus", "Greek Golden Visa"],
@@ -39,7 +47,9 @@ INTENT_PHRASES = [
     "golden visa", "residency by investment", "property for residency",
     "ev almak istiyorum", "daire almak istiyorum", "satın almak istiyorum", "ev arıyorum", "daire arıyorum", "villa arıyorum", "arsa arıyorum", "yatırım için ev", "Kıbrıs'a taşınmak", "hangi bölgede ev alınır",
     "хочу купить", "хотим купить", "ищу квартиру", "ищу апартамент", "ищу виллу", "ищу дом", "ищу недвижимость", "куплю квартиру", "куплю недвижимость", "готов купить", "планирую купить", "недвижимость за рубежом", "инвестиции в недвижимость", "переезд", "переезжаем", "ВНЖ",
-    "haus kaufen", "wohnung kaufen", "immobilie kaufen", "acheter une maison", "acheter un appartement", "acheter un bien immobilier", "huis kopen", "woning kopen", "vastgoed kopen", "αγορά ακινήτου"
+    "haus kaufen", "wohnung kaufen", "immobilie kaufen", "villa kaufen", "suche immobilie", "suche wohnung", "suche haus", "nach nordzypern ziehen", "auswandern nach nordzypern",
+    "acheter une maison", "acheter un appartement", "acheter un bien immobilier", "huis kopen", "woning kopen", "vastgoed kopen", "αγορά ακινήτου",
+    "قصد خرید", "دنبال خرید", "خرید ملک"
 ]
 
 EXCLUDE_PHRASES = [
