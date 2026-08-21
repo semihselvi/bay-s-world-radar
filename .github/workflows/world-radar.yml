@@ -18,9 +18,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [north_cyprus_cis, golden_south, west_europe, telegram_member]
+        shard: [north_cyprus_cis, golden_south, west_europe, central_europe, telegram_member]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 22
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -32,7 +32,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Syntax check
-        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py shard_runner.py world_hard_filters.py
+        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py world_hard_filters.py
       - name: Preflight required secrets
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -52,11 +52,13 @@ jobs:
               print("MISSING_SECRETS="+",".join(missing)); sys.exit(2)
           PY
       - name: Run morning shard ${{ matrix.shard }}
-        timeout-minutes: 15
+        timeout-minutes: 17
         env:
           WORLD_RADAR_SHARD: ${{ matrix.shard }}
           WORLD_LOOKBACK_HOURS: "24"
           WORLD_EXA_NUM_RESULTS: "15"
+          WORLD_DIRECT_LINK_LIMIT: "16"
+          WORLD_CATALOG_CHANNEL_LIMIT: "10"
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -65,8 +67,8 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
-          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "60"
-          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "25"
+          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "100"
+          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "40"
         run: python shard_runner.py
       - name: Notify failure
         if: failure()
@@ -103,8 +105,8 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
-          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "60"
-          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "25"
+          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "80"
+          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "30"
         run: python shard_runner.py
 
   evening-shards:
@@ -134,6 +136,8 @@ jobs:
           WORLD_LOOKBACK_HOURS: ${{ matrix.lookback }}
           WORLD_SHARD_EXA_CALLS: ${{ matrix.exa }}
           WORLD_EXA_NUM_RESULTS: "15"
+          WORLD_DIRECT_LINK_LIMIT: "16"
+          WORLD_CATALOG_CHANNEL_LIMIT: "10"
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -142,6 +146,6 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
-          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "60"
-          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "25"
+          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "80"
+          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "30"
         run: python shard_runner.py
