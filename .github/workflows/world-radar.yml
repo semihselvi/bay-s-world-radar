@@ -3,99 +3,145 @@ name: BAY-S World Radar
 on:
   workflow_dispatch:
   schedule:
-    # 06:07 UTC = 09:07 Turkey time (UTC+3)
-    - cron: "7 6 * * *"
+    # Turkey time UTC+3
+    - cron: "7 6 * * *"   # 09:07 full morning scan
+    - cron: "7 12 * * *"  # 15:07 Telegram member refresh, no Exa
+    - cron: "7 18 * * *"  # 21:07 Telegram + Golden/South refresh, 1 Exa
+
+concurrency:
+  group: bay-s-world-radar-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
 
 jobs:
-  world-radar:
+  morning-shards:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7 6 * * *'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [north_cyprus_cis, golden_south, west_europe, telegram_member]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: Syntax check
-        run: |
-          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py telegram_hybrid_engine.py source_registry.py world_hard_filters.py
-
+        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py shard_runner.py world_hard_filters.py
       - name: Preflight required secrets
         env:
-          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
         run: |
           python - <<'PY'
           import os, sys
-          required = [
-              "EXA_API_KEY",
-              "FIREBASE_SERVICE_ACCOUNT_JSON",
-              "TELEGRAM_BOT_TOKEN",
-              "TELEGRAM_CHAT_ID",
-              "TELEGRAM_API_ID",
-              "TELEGRAM_API_HASH",
-              "TELEGRAM_STRING_SESSION",
-          ]
-          missing = [name for name in required if not os.getenv(name, "").strip()]
-          print("SECRET_PREFLIGHT")
-          for name in required:
-              print(f"  {name}: {'OK' if name not in missing else 'MISSING'}")
+          required = ["FIREBASE_SERVICE_ACCOUNT_JSON","TELEGRAM_BOT_TOKEN","TELEGRAM_CHAT_ID","EXA_API_KEY","TELEGRAM_API_ID","TELEGRAM_API_HASH","TELEGRAM_STRING_SESSION"]
+          missing=[x for x in required if not os.getenv(x,"").strip()]
+          print("SECRET_PREFLIGHT", {x:("OK" if x not in missing else "MISSING") for x in required})
           if missing:
-              print("MISSING_SECRETS=" + ",".join(missing))
-              print("Radar stopped BEFORE Exa calls, so no paid scan was used.")
-              sys.exit(2)
-          print("SECRET_PREFLIGHT_OK")
+              print("MISSING_SECRETS="+",".join(missing)); sys.exit(2)
           PY
-
-      - name: Run BAY-S World Radar
-        timeout-minutes: 18
+      - name: Run morning shard ${{ matrix.shard }}
+        timeout-minutes: 15
         env:
+          WORLD_RADAR_SHARD: ${{ matrix.shard }}
+          WORLD_LOOKBACK_HOURS: "24"
+          WORLD_EXA_NUM_RESULTS: "15"
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
-          WORLD_LOOKBACK_HOURS: "24"
-          WORLD_EXA_NUM_RESULTS: "15"
-          WORLD_EXA_FALLBACK_CALLS: "2"
-          WORLD_TELEGRAM_CHANNELS: ${{ secrets.WORLD_TELEGRAM_CHANNELS }}
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
           WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "60"
           WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "25"
-        run: |
-          python telegram_hybrid_engine.py
-
-      - name: Notify Telegram on radar failure
+        run: python shard_runner.py
+      - name: Notify failure
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python - <<'PY'
-          import os, requests
-          token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-          chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-          if token and chat_id:
-              text = "⚠️ BAY-S WORLD RADAR çalışırken hata oluştu. GitHub Actions logunu kontrol edin."
-              r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=15)
-              print("FAILURE_TELEGRAM_STATUS", r.status_code)
-          else:
-              print("FAILURE_TELEGRAM_DISABLED missing token/chat id")
+          import os,requests
+          t=os.getenv('TELEGRAM_BOT_TOKEN',''); c=os.getenv('TELEGRAM_CHAT_ID','')
+          if t and c: requests.post(f'https://api.telegram.org/bot{t}/sendMessage',json={'chat_id':c,'text':'⚠️ BAY-S WORLD RADAR morning shard failed. Check GitHub Actions.'},timeout=15)
           PY
+
+  afternoon-telegram:
+    if: github.event.schedule == '7 12 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run Telegram refresh
+        env:
+          WORLD_RADAR_SHARD: telegram_member
+          WORLD_LOOKBACK_HOURS: "8"
+          WORLD_SHARD_EXA_CALLS: "0"
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
+          WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
+          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "60"
+          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "25"
+        run: python shard_runner.py
+
+  evening-shards:
+    if: github.event.schedule == '7 18 * * *'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: telegram_member
+            lookback: "8"
+            exa: "0"
+          - shard: golden_south
+            lookback: "12"
+            exa: "1"
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run evening shard ${{ matrix.shard }}
+        env:
+          WORLD_RADAR_SHARD: ${{ matrix.shard }}
+          WORLD_LOOKBACK_HOURS: ${{ matrix.lookback }}
+          WORLD_SHARD_EXA_CALLS: ${{ matrix.exa }}
+          WORLD_EXA_NUM_RESULTS: "15"
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
+          WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
+          WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "60"
+          WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "25"
+        run: python shard_runner.py
