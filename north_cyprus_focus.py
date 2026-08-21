@@ -14,7 +14,7 @@ ALLOWED_USER_DOMAINS = {
 
 NC_SOURCE_HINTS = (
     "northcyprus", "northerncyprus", "snchubtalkroom", "searchnorthcyprus",
-    "meetinnorthcyprus", "cyprusy",
+    "meetinnorthcyprus", "cyprusy", "kibkomnorthcyprusforum", "kibkom",
 )
 
 NC_LOCATION_PATTERNS = [
@@ -26,17 +26,19 @@ NC_LOCATION_PATTERNS = [
     r"\bbah[çc]eli\b", r"\bk[üu][çc][üu]k erenk[öo]y\b", r"\b[çc]atalk[öo]y\b",
     r"\balsancak\b", r"\bkar[şs][ıi]yaka\b", r"\bbellapais\b",
     r"\bbeylerbeyi\b", r"\bozank[öo]y\b", r"\blefke\b", r"\bg[üu]zelyurt\b",
-    r"\bbo[ğg]az\b",
+    r"\bbo[ğg]az\b", r"\bkarpaz\b", r"\b[İi]skele long beach\b",
 ]
 
 PROPERTY_PATTERNS = [
     r"\bproperty\b", r"\bhouse\b", r"\bhome\b", r"\bflat\b", r"\bapartment\b",
     r"\bvilla\b", r"\btownhouse\b", r"\bland\b", r"\bplot\b",
+    r"\bstudio\b", r"\bst[üu]dyo\b", r"\b[1-5]\s*\+\s*[01]\b",
+    r"\b(?:one|two|three|four)[ -]?bed(?:room)?\b", r"\b\d\s*bed(?:room)?\b",
     r"\bev\b", r"\bdaire\b", r"\barsa\b", r"\bgayrimenkul\b",
     r"\bквартир", r"\bапартамент", r"\bдом\b", r"\bвилл", r"\bнедвижимост",
-    r"\bwohnung\b", r"\bhaus\b", r"\bimmobil", r"\bmaison\b",
-    r"\bappartement\b", r"\bbien immobilier\b", r"\bhuis\b", r"\bwoning\b",
-    r"\bvastgoed\b", r"خانه", r"آپارتمان", r"ویلا", r"ملک",
+    r"\bстуди[яи]\b", r"\b[1-4][- ]?комнат", r"\bwohnung\b", r"\bhaus\b",
+    r"\bimmobil", r"\bmaison\b", r"\bappartement\b", r"\bbien immobilier\b",
+    r"\bhuis\b", r"\bwoning\b", r"\bvastgoed\b", r"خانه", r"آپارتمان", r"ویلا", r"ملک",
 ]
 
 STRONG_BUYER_PATTERNS = [
@@ -47,10 +49,10 @@ STRONG_BUYER_PATTERNS = [
     r"\bmake an offer\b", r"\bput in an offer\b", r"\bcash buyer\b",
     r"\bev almak istiyorum\b", r"\bdaire almak istiyorum\b", r"\bvilla almak istiyorum\b",
     r"\bsat[ıi]n almak istiyorum\b", r"\bev ar[ıi]yorum\b", r"\bdaire ar[ıi]yorum\b",
-    r"\bvilla ar[ıi]yorum\b", r"\bgayrimenkul almak\b",
-    r"\byat[ıi]r[ıi]m i[çc]in (?:ev|daire|gayrimenkul)\b",
+    r"\bvilla ar[ıi]yorum\b", r"\bst[üu]dyo ar[ıi]yorum\b", r"\bgayrimenkul almak\b",
+    r"\byat[ıi]r[ıi]m i[çc]in (?:ev|daire|gayrimenkul|1\+1|2\+1|st[üu]dyo)\b",
     r"\bхочу купить\b", r"\bхотим купить\b", r"\bищу квартиру\b",
-    r"\bищу апартамент", r"\bищу дом\b", r"\bищу виллу\b",
+    r"\bищу апартамент", r"\bищу дом\b", r"\bищу виллу\b", r"\bищу студи",
     r"\bищу недвижимость\b", r"\bкуплю недвижимость\b", r"\bпланирую купить\b",
     r"\bготов(?:а|ы)? купить\b", r"\bich m[öo]chte .* kaufen\b",
     r"\bwir m[öo]chten .* kaufen\b", r"\bich will .* kaufen\b",
@@ -62,6 +64,32 @@ STRONG_BUYER_PATTERNS = [
     r"قصد خرید", r"دنبال خرید", r"خرید ملک",
 ]
 
+# People in property groups often write very short messages and omit pronouns and
+# the word "buy": "2+1 Long Beach var mı?", "what can I get for £100k?", etc.
+# These are valuable requests and must not be discarded just because they are terse.
+REQUEST_BUYER_PATTERNS = [
+    r"\blooking for\b", r"\bseeking\b", r"\bany (?:1\+1|2\+1|3\+1|studio|apartment|flat|villa|property)\b",
+    r"\bwhat can (?:i|we) get for\b", r"\bwhat (?:can|could) .* buy for\b",
+    r"\bhow much (?:is|are|for)\b", r"\bwhat(?:'s| is) the price\b", r"\bprice range\b",
+    r"\bprices? (?:in|around|for)\b", r"\bunder\s*[£€$]?\s*\d", r"\bup to\s*[£€$]?\s*\d",
+    r"\bmax(?:imum)?\s*[£€$]?\s*\d", r"\bbudget\s*(?:is|of|around|up to|:)?.*\d",
+    r"\bbest (?:area|place|location) (?:to buy|to invest|for investment)\b",
+    r"\bwhich (?:area|location|project|development|developer)\b",
+    r"\bwhere (?:to|should .*|can .*) (?:buy|invest)\b", r"\bis .* worth (?:buying|investing)\b",
+    r"\bany recommendations? (?:for|on) (?:a )?(?:project|development|developer|area|property)\b",
+    r"\brecommend (?:a )?(?:project|development|developer|area)\b",
+    r"\boff[- ]?plan (?:or|vs|versus) resale\b", r"\bready (?:property|apartment|villa)\b",
+    r"\btitle deed\b", r"\bko[çc]an(?:l[ıi])?\b", r"\bpayment plan\b", r"\binstallments?\b",
+    r"\bpe[şs]inat\b", r"\btaksit(?:li|le)?\b", r"\bkrediyle ev\b", r"\bipotek\b",
+    r"\bvar m[ıi]\b", r"\bmevcut mu\b", r"\bne kadar\b", r"\bfiyat[ıi] nedir\b",
+    r"\bhangi (?:b[öo]lge|proje|firma|m[üu]teahhit)\b", r"\bmant[ıi]kl[ıi] m[ıi]\b",
+    r"\bne alabilirim\b", r"\b\d+\s*(?:bin|k)\s*(?:sterlin|pound|gbp).*ne al",
+    r"\bчто можно купить\b", r"\bсколько стоит\b", r"\bдо\s*[£€$]?\s*\d",
+    r"\bкакой район лучше\b", r"\bгде лучше купить\b", r"\bпосоветуйте (?:район|комплекс|застройщика)\b",
+    r"\bесть ли .*(?:квартир|апартамент|студи|вилл)\b", r"\bрассрочк", r"\bпервоначальн(?:ый|ого) взнос\b",
+    r"\bготовая квартир", r"\bвторичк", r"\bновостройк",
+]
+
 EARLY_BUYER_PATTERNS = [
     r"\bmoving to\b", r"\brelocating to\b", r"\bplanning to move\b",
     r"\bsecond home\b", r"\bholiday home\b", r"\bretirement home\b",
@@ -69,6 +97,7 @@ EARLY_BUYER_PATTERNS = [
     r"\bcan anyone recommend .* (?:property|house|apartment|villa)\b",
     r"\bwhere can (?:i|we) find .* (?:property|house|apartment|villa)\b",
     r"\bk[ıi]br[ıi]s'?a ta[şs][ıi]n", r"\bhangi b[öo]lgede ev al",
+    r"\b[İi]skele mi girne mi\b", r"\blong beach.*yat[ıi]r[ıi]m\b",
     r"\bпереезд\b", r"\bпереезжа", r"\bкуда лучше купить\b",
     r"\bnach nordzypern ziehen\b", r"\bauswandern nach nordzypern\b",
 ]
@@ -76,7 +105,7 @@ EARLY_BUYER_PATTERNS = [
 PERSONAL_PATTERNS = [
     r"\bI\b", r"\bI'm\b", r"\bI am\b", r"\bmy\b", r"\bwe\b", r"\bwe're\b",
     r"\bwe are\b", r"\bour\b", r"\bben\b", r"\bbiz\b", r"\bbenim\b", r"\bbizim\b",
-    r"\bя\b", r"\bмы\b", r"\bмой\b", r"\bнаш\b", r"\bхочу\b", r"\bищу\b",
+    r"\bya\b", r"\bмы\b", r"\bмой\b", r"\bнаш\b", r"\bхочу\b", r"\bищу\b",
     r"\bich\b", r"\bwir\b", r"\bmein", r"\bunser", r"\bje\b", r"\bnous\b",
     r"\bmon\b", r"\bnotre\b", r"\bik\b", r"\bwij\b", r"\bmijn\b", r"\bons\b",
     r"من", r"ما", r"\banyone\b", r"\bcan anyone\b", r"\bdoes anyone\b",
@@ -88,7 +117,8 @@ CONCRETE_PATTERNS = [
     r"\bmortgage\b", r"\bviewing\b", r"\boffer\b", r"\blawyer\b",
     r"\btitle deed\b", r"\bpayment plan\b", r"\bcompletion\b", r"\bcash\b",
     r"\bипотек", r"\bвзнос\b", r"\bnakit\b", r"\bkapora\b", r"\bko[çc]an\b",
-    r"\bkaufpreis\b", r"\beigenkapital\b", r"\bfinanzierung\b",
+    r"\bpe[şs]inat\b", r"\btaksit\b", r"\brasroch", r"\bkaufpreis\b",
+    r"\beigenkapital\b", r"\bfinanzierung\b",
 ]
 
 SELLER_PATTERNS = [
@@ -156,6 +186,7 @@ def keep_candidate(item, cutoff):
 
     seller_hits = sum(1 for phrase in SELLER_PATTERNS if phrase.lower() in text.lower())
     strong = _matches(text, STRONG_BUYER_PATTERNS)
+    request = _matches(text, REQUEST_BUYER_PATTERNS)
     early = _matches(text, EARLY_BUYER_PATTERNS)
     personal = _matches(text, PERSONAL_PATTERNS)
     prop = _matches(text, PROPERTY_PATTERNS)
@@ -164,9 +195,12 @@ def keep_candidate(item, cutoff):
         return False, "seller_agent"
     if not prop:
         return False, "no_buyer_intent"
-    if not personal:
+
+    # High-recall exception: short question/request posts in a genuine community
+    # do not need an explicit I/we/ben/я pronoun. Example: "2+1 Long Beach var mı?"
+    if not personal and not request:
         return False, "not_enough_user_discussion_signal"
-    if not strong and not early:
+    if not strong and not early and not request:
         return False, "no_buyer_intent"
     return True, "candidate"
 
@@ -174,26 +208,28 @@ def keep_candidate(item, cutoff):
 def buyer_scores(item):
     text = _text(item)
     strong_hits = _count(text, STRONG_BUYER_PATTERNS)
+    request_hits = _count(text, REQUEST_BUYER_PATTERNS)
     early_hits = _count(text, EARLY_BUYER_PATTERNS)
     concrete_hits = _count(text, CONCRETE_PATTERNS)
     property_hits = _count(text, PROPERTY_PATTERNS)
     personal = _matches(text, PERSONAL_PATTERNS)
     strong = strong_hits > 0
+    request = request_hits > 0
     early = early_hits > 0
     concrete = concrete_hits > 0
 
-    intent = 60 + min(22, strong_hits * 10) + min(10, early_hits * 5) + min(8, concrete_hits * 4)
-    credibility = 62 + (8 if item.get("author") else 0) + min(12, main.discussion_likelihood(item) * 2) + (6 if concrete else 0)
-    fit = 88 if _nc_context(item, text) else 70
+    intent = 58 + min(22, strong_hits * 10) + min(14, request_hits * 7) + min(8, early_hits * 4) + min(8, concrete_hits * 4)
+    credibility = 60 + (8 if item.get("author") else 0) + min(12, main.discussion_likelihood(item) * 2) + (6 if concrete else 0)
+    fit = 90 if _nc_context(item, text) else 70
 
     intent = min(100, intent)
     credibility = min(100, credibility)
     fit = min(100, fit)
 
-    if strong and concrete and personal and intent >= 82 and credibility >= 70:
+    if strong and concrete and (personal or request) and intent >= 82 and credibility >= 68:
         label = "HOT"
-    elif personal and (strong or early) and property_hits >= 1 and intent >= 65:
-        # Early-stage genuine North Cyprus buyers are useful even without a posted budget.
+    elif (personal or request) and (strong or early or request) and property_hits >= 1 and intent >= 64:
+        # In a slow market it is better to review a genuine early buyer than lose them.
         label = "WARM"
     else:
         label = "REVIEW"
