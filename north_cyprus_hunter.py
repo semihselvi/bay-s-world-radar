@@ -81,14 +81,29 @@ def _persist_channels(channels, discovered_by):
 
 _dynamic_channels = _load_dynamic_channels()
 
+# The dedicated hunter can use community domains that the general World Radar
+# intentionally keeps out of its stricter production allow-list.
+north_cyprus_focus.ALLOWED_USER_DOMAINS.add("forum.awd.ru")
+
 # Kibkom exposes current/latest topic links on its public index. Individual sales
-# areas can require login, but scanning the public latest-topic surface is free and
-# can still reveal buyer questions from the wider North Cyprus community.
+# areas can require login, but scanning the public latest-topic surface is free.
 if not any(x.get("name") == "Kibkom North Cyprus Latest" for x in shard_runner.DIRECT_INDEX_SOURCES):
     shard_runner.DIRECT_INDEX_SOURCES.append({
         "name": "Kibkom North Cyprus Latest",
         "url": "https://kibkomnorthcyprusforum.com/",
         "domain": "kibkomnorthcyprusforum.com",
+        "market": "north_cyprus",
+        "include_path": ["viewtopic.php"],
+        "max_links": 30,
+    })
+
+# Forum AWD has a dedicated Северный Кипр forum and was still receiving posts in
+# 2026. It is especially useful for Russian-speaking relocation/property intent.
+if not any(x.get("name") == "AWD North Cyprus Forum" for x in shard_runner.DIRECT_INDEX_SOURCES):
+    shard_runner.DIRECT_INDEX_SOURCES.append({
+        "name": "AWD North Cyprus Forum",
+        "url": "https://forum.awd.ru/viewforum.php?f=1683",
+        "domain": "forum.awd.ru",
         "market": "north_cyprus",
         "include_path": ["viewtopic.php"],
         "max_links": 30,
@@ -100,6 +115,7 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
     "index_names": {
         "Expat.com North Cyprus",
         "Kibkom North Cyprus Latest",
+        "AWD North Cyprus Forum",
     },
     "topic_names": set(),
     "telegram": {
@@ -122,15 +138,16 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
         "viewing, offer, off-plan versus resale, ready property, relocation, retirement or second home. Search English, "
         "Turkish, Russian, German, French, Dutch and Persian wording including ev ariyorum, daire ariyorum, var mi, "
         "ne kadar, hangi bolge, butce, pesinat, taksit, хочу купить, ищу квартиру, что можно купить, сколько стоит, "
-        "какой район лучше, рассрочка. Prioritize recent user posts/comments in Reddit, expat forums, Facebook groups "
-        "and Telegram communities. Exclude agents, brokers, developers, listings, advertising, rental-only requests, "
-        "guides and news."
+        "какой район лучше, рассрочка. Prioritize recent user posts/comments in r/NorthCyprus, r/cyprus, r/expats, "
+        "r/Investors, r/realestateinvesting, expat forums, Facebook groups and Telegram communities. Exclude agents, "
+        "brokers, developers, listings, advertising, rental-only requests, guides and news."
     ),
     "exa_domains": [
         "reddit.com",
         "expat.com",
         "expatforum.com",
         "kibkomnorthcyprusforum.com",
+        "forum.awd.ru",
         "britishexpats.com",
         "tripadvisor.com",
         "facebook.com",
