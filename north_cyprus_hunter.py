@@ -29,7 +29,6 @@ def _load_dynamic_channels(limit=40):
             if username:
                 channels.add(username)
     except Exception as exc:
-        # A composite index may not exist yet. Fall back to a simpler query.
         print("DYNAMIC_SOURCE_LOAD_FALLBACK", exc)
         try:
             for doc in db.collection(DYNAMIC_SOURCE_COLLECTION).limit(100).stream():
@@ -82,11 +81,25 @@ def _persist_channels(channels, discovered_by):
 
 _dynamic_channels = _load_dynamic_channels()
 
-# Dedicated North Cyprus shard. It uses a wider buyer-intent net than the general
-# World Radar while keeping seller/rental filtering strict.
+# Kibkom exposes current/latest topic links on its public index. Individual sales
+# areas can require login, but scanning the public latest-topic surface is free and
+# can still reveal buyer questions from the wider North Cyprus community.
+if not any(x.get("name") == "Kibkom North Cyprus Latest" for x in shard_runner.DIRECT_INDEX_SOURCES):
+    shard_runner.DIRECT_INDEX_SOURCES.append({
+        "name": "Kibkom North Cyprus Latest",
+        "url": "https://kibkomnorthcyprusforum.com/",
+        "domain": "kibkomnorthcyprusforum.com",
+        "market": "north_cyprus",
+        "include_path": ["viewtopic.php"],
+        "max_links": 30,
+    })
+
+# Dedicated North Cyprus shard. High recall is intentional: a terse genuine buyer
+# question is more valuable than a perfectly classified lead we discover too late.
 shard_runner.SHARDS["north_cyprus_hunter"] = {
     "index_names": {
         "Expat.com North Cyprus",
+        "Kibkom North Cyprus Latest",
     },
     "topic_names": set(),
     "telegram": {
@@ -100,13 +113,18 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
     "member": True,
     "exa_calls": 1,
     "exa_query": (
-        "past 7 days real person first-person discussion about actually buying a home, apartment, "
-        "villa, land or investment property in North Cyprus, Northern Cyprus, TRNC, Iskele, Long Beach, "
-        "Kyrenia, Girne, Esentepe, Famagusta, Gazimagusa, Lapta, Tatlisu, Bahceli or Bafra; include people "
-        "asking where to buy, what area, title deed, lawyer, mortgage, deposit, viewing, offer, payment plan, "
-        "budget, relocation, retirement or second home; English Turkish Russian German French Dutch Persian; "
-        "prioritize genuine forum, Reddit, Facebook group and Telegram community posts; exclude agents, brokers, "
-        "developers, listings, advertising, rental-only requests, guides and news"
+        "past 7 days genuine person asking about buying, finding, pricing or choosing a home, apartment, studio, "
+        "villa, land or investment property in North Cyprus, Northern Cyprus or TRNC; include Iskele, Long Beach, "
+        "Kyrenia, Girne, Esentepe, Famagusta, Gazimagusa, Lapta, Tatlisu, Bahceli, Bafra, Alsancak, Karsiyaka, "
+        "Catalkoy, Bellapais and Yenibogazici. Include short buyer questions such as 1+1, 2+1, 3+1, studio wanted, "
+        "what can I get for a budget, how much is an apartment, which area is best, Iskele or Girne, which project "
+        "or developer is reliable, title deed/kocan, lawyer, mortgage, deposit, down payment, installment/payment plan, "
+        "viewing, offer, off-plan versus resale, ready property, relocation, retirement or second home. Search English, "
+        "Turkish, Russian, German, French, Dutch and Persian wording including ev ariyorum, daire ariyorum, var mi, "
+        "ne kadar, hangi bolge, butce, pesinat, taksit, хочу купить, ищу квартиру, что можно купить, сколько стоит, "
+        "какой район лучше, рассрочка. Prioritize recent user posts/comments in Reddit, expat forums, Facebook groups "
+        "and Telegram communities. Exclude agents, brokers, developers, listings, advertising, rental-only requests, "
+        "guides and news."
     ),
     "exa_domains": [
         "reddit.com",
@@ -147,8 +165,6 @@ _CAPTURED_NEW_LEADS = []
 
 def north_cyprus_market_for(text, bucket_name="", url="", title=""):
     market = _original_market_for(text, bucket_name, url, title)
-    # Every source in this dedicated shard is North-Cyprus-focused. The fallback
-    # only applies when the generic classifier cannot resolve a market at all.
     return "north_cyprus" if market == "unknown" else market
 
 
@@ -166,7 +182,7 @@ def hunter_notify(default_message):
     for lead in _CAPTURED_NEW_LEADS[:8]:
         author = lead.get("author", "") or "kullanıcı"
         place = lead.get("telegram_chat", "") or lead.get("title", "") or lead.get("source", "")
-        excerpt = " ".join(str(lead.get("text", "")).split())[:240]
+        excerpt = " ".join(str(lead.get("text", "")).split())[:260]
         lines.append(
             f"\n{lead.get('classification','WARM')} | {author} | {place[:80]}\n"
             f"I{lead.get('intent_score',0)} C{lead.get('credibility_score',0)} F{lead.get('market_fit_score',0)}\n"
