@@ -23,12 +23,23 @@ REDDIT_SUBREDDITS = [
 ]
 
 TELEGRAM_PUBLIC_CHANNELS = [
-    # North Cyprus - community/discovery first, seller-only channels intentionally avoided
+    # North Cyprus - community/discovery first. Prefer chats where buyer questions
+    # can appear; obvious seller-only broadcast channels remain deprioritized.
     "cyprusy",
     "searchnorthcyprus",
     "snchubTalkroom",
     "meetinnorthcyprus",
     "northcyprus29",
+    # SearchNorthCyprus city communities - buyers often ask by location only.
+    "searchgirne",
+    "lefkosasearch",
+    "iskelesearch",
+    "famagustasearchsnc",
+    # Broad local/Russian-speaking North Cyprus communities.
+    "cyprusposter",
+    "cyprusmedicine",
+    "nedvizhimost_kipr",
+    # Existing researched North Cyprus property/discovery sources.
     "velesproperty",
     "btinvestnorthcyprus",
     "sadeceemlakoto",
@@ -46,6 +57,9 @@ TELEGRAM_PUBLIC_CHANNELS = [
 TELEGRAM_INVITE_REFERENCES = [
     "https://t.me/+WZluIebsLjwxYTFk",
     "https://t.me/+Rxo-Uo74TL5kZGFi",
+    # High-value buyer/property discussion group. Private invite references are
+    # never auto-joined; joining stays a manual user action.
+    "https://t.me/+1s8HYWeJIN81NDdk",
 ]
 
 WHATSAPP_REFERENCES = [
