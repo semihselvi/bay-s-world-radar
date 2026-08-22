@@ -1,0 +1,89 @@
+name: BAY-S YouTube Radar
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "scan | discover_scan | deep_scan"
+        required: false
+        default: "scan"
+  schedule:
+    # Turkey time UTC+3
+    - cron: "25 5 * * *"            # 08:25 daily: discover new NC videos + scan comments
+    - cron: "25 7,9,11,13,15,17,19 * * *" # 10:25..22:25: comment pulses, no video search
+    - cron: "45 4 * * 0"            # Sunday 07:45: deep evergreen video discovery + scan
+
+concurrency:
+  group: bay-s-youtube-radar-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  youtube-radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Syntax check
+        run: python -m py_compile main.py youtube_radar.py
+
+      - name: Check YouTube Radar secret
+        id: keycheck
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          if [ -z "$YOUTUBE_API_KEY" ]; then
+            echo "YOUTUBE_RADAR_DISABLED missing YOUTUBE_API_KEY"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "YOUTUBE_API_KEY=OK"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run YouTube Radar
+        if: steps.keycheck.outputs.enabled == 'true'
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          # Manual run respects the selected mode. Scheduled runs are resolved below.
+          YOUTUBE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '25 5 * * *' && 'discover_scan') || (github.event.schedule == '45 4 * * 0' && 'deep_scan') || 'scan' }}
+
+          # Daily discovery searches recent videos; weekly deep discovery also adds evergreen videos.
+          YOUTUBE_DISCOVERY_QUERY_LIMIT: ${{ github.event.schedule == '45 4 * * 0' && '22' || '12' }}
+          YOUTUBE_SEARCH_RESULTS: "15"
+          YOUTUBE_DISCOVERY_DAYS: "14"
+
+          # Persistent watchlist makes comment pulses cheap: discovery is not repeated every run.
+          YOUTUBE_WATCHLIST_LIMIT: "160"
+          YOUTUBE_COMMENT_PAGES: "1"
+          YOUTUBE_LOOKBACK_HOURS: ${{ github.event.schedule == '25 5 * * *' && '24' || github.event.schedule == '45 4 * * 0' && '72' || '3' }}
+        run: python youtube_radar.py
+
+      - name: Notify workflow failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os, requests
+          token=os.getenv('TELEGRAM_BOT_TOKEN','').strip()
+          chat=os.getenv('TELEGRAM_CHAT_ID','').strip()
+          if token and chat:
+              requests.post(
+                  f'https://api.telegram.org/bot{token}/sendMessage',
+                  json={'chat_id':chat,'text':'⚠️ BAY-S YOUTUBE RADAR failed. Check GitHub Actions.'},
+                  timeout=15,
+              )
+          PY
