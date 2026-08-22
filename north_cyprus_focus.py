@@ -5,7 +5,7 @@ import main
 import world_engine
 
 # High-recall rules for North Cyprus. We still require a fresh public/user
-# discussion and reject obvious agents, listings and rentals.
+# discussion and reject obvious agents, listings, rentals and service promotions.
 ALLOWED_USER_DOMAINS = {
     "reddit.com", "expat.com", "expatforum.com", "kibkomnorthcyprusforum.com",
     "britishexpats.com", "tripadvisor.com", "facebook.com", "t.me",
@@ -66,7 +66,6 @@ STRONG_BUYER_PATTERNS = [
 
 # People in property groups often write very short messages and omit pronouns and
 # the word "buy": "2+1 Long Beach var mı?", "what can I get for £100k?", etc.
-# These are valuable requests and must not be discarded just because they are terse.
 REQUEST_BUYER_PATTERNS = [
     r"\blooking for\b", r"\bseeking\b", r"\bany (?:1\+1|2\+1|3\+1|studio|apartment|flat|villa|property)\b",
     r"\bwhat can (?:i|we) get for\b", r"\bwhat (?:can|could) .* buy for\b",
@@ -135,6 +134,29 @@ RENTAL_PATTERNS = [
     "сдается", "аренда", "mieten", "zur miete", "à louer", "te huur", "اجاره",
 ]
 
+# Promotional bots/services can contain words like "buy", "property", "budget"
+# and therefore look like buyer intent unless explicitly filtered. Require either
+# the known brand or multiple marketing/service signals before rejecting.
+PROMOTIONAL_SERVICE_PATTERNS = [
+    r"\bpulsemarket\b",
+    r"персональн\w* робот\w*[- ]?поисковик",
+    r"бот (?:будет|может) мониторить",
+    r"уведомлен\w* (?:прямо )?(?:в лс|в личк)",
+    r"активир\w* .*уведомлен",
+    r"умн\w* фильтр",
+    r"\b99\s*[⭐★]",
+    r"kişisel arama robot",
+    r"bot.*piyas.*takip",
+    r"anında özel mesaj.*bildirim",
+    r"bildirimleri aktif",
+    r"akıllı filtre",
+    r"personal search robot",
+    r"bot.*monitor.*market",
+    r"instant notifications?",
+    r"activate .*notifications?",
+    r"smart filters?",
+]
+
 
 def _text(item):
     return " ".join(str(item.get(k, "")) for k in ("title", "text", "author", "telegram_chat")).strip()
@@ -153,6 +175,13 @@ def _matches(text, patterns):
 
 def _count(text, patterns):
     return sum(1 for pattern in patterns if re.search(pattern, text, re.I))
+
+
+def _promotional_service_ad(text):
+    low = text.lower()
+    if "pulsemarket" in low:
+        return True
+    return _count(text, PROMOTIONAL_SERVICE_PATTERNS) >= 2
 
 
 def _allowed_source(item):
@@ -179,6 +208,8 @@ def keep_candidate(item, cutoff):
         return False, "older_than_24h"
 
     text = _text(item)
+    if _promotional_service_ad(text):
+        return False, "promotional_service_ad"
     if not _nc_context(item, text):
         return False, "not_north_cyprus"
     if _matches(text, RENTAL_PATTERNS):
