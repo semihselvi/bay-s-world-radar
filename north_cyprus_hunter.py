@@ -127,6 +127,23 @@ EDUCATION_SERVICE_PATTERNS = [
     r"starting from just\s*\$?\s*\d",
 ]
 
+VEHICLE_SERVICE_PATTERNS = [
+    r"own a car in north cyprus",
+    r"without paying the full amount upfront",
+    r"flexible installment plans",
+    r"flexible monthly installments",
+    r"wide range of cars",
+    r"simple application process",
+    r"find your next car",
+    r"vehicle financing",
+    r"car financing",
+    r"cars? on installments?",
+    r"vehicle[s]? on installments?",
+    r"spread your payments over time",
+    r"payment plan that suits your budget",
+    r"suitable for students, workers, and residents",
+]
+
 
 def _promotional_or_transfer_service_ad(text):
     if _original_promotional_service_ad(text):
@@ -162,7 +179,29 @@ def _promotional_or_transfer_service_ad(text):
     if re.search(r"study in north cyprus|university admission|up to 100% scholarship|snc study", text, re.I):
         return True
     education_hits = sum(1 for pattern in EDUCATION_SERVICE_PATTERNS if re.search(pattern, text, re.I))
-    return education_hits >= 3
+    if education_hits >= 3:
+        return True
+
+    # Car dealers / vehicle-finance promotions can contain "payment plan", "budget"
+    # and North Cyprus, which are also valid property-buyer signals. Reject only
+    # clear vehicle-commercial copy; do not reject a genuine property buyer who
+    # merely mentions a car or a possible car/property swap.
+    if re.search(r"own a car in north cyprus|vehicle financing|car financing|wide range of cars", text, re.I):
+        return True
+    vehicle_hits = sum(1 for pattern in VEHICLE_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    vehicle_commercial_hits = sum(
+        1
+        for pattern in (
+            r"contact us today",
+            r"\+?90\s*5\d{2}",
+            r"dm\s+@\w+",
+            r"searchnorthcyprus\.org",
+            r"monthly installments",
+            r"application process",
+        )
+        if re.search(pattern, text, re.I)
+    )
+    return vehicle_hits >= 2 or (vehicle_hits >= 1 and vehicle_commercial_hits >= 2)
 
 
 north_cyprus_focus._promotional_service_ad = _promotional_or_transfer_service_ad
@@ -234,7 +273,7 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
         "что можно купить, сколько стоит, какой район лучше, рассрочка. Prioritize recent user posts/comments in "
         "r/NorthCyprus, r/cyprus, r/expats, r/Investors, r/realestateinvesting, expat forums, Facebook groups and Telegram "
         "communities. Exclude agents, brokers, developers, listings, advertising, transfer services, education/admission "
-        "agencies, scholarship promotions, rental-only requests, guides and news."
+        "agencies, scholarship promotions, car dealers, vehicle-finance/installment promotions, rental-only requests, guides and news."
     ),
     "exa_domains": [
         "reddit.com",
