@@ -206,6 +206,15 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
         "snchubTalkroom",
         "meetinnorthcyprus",
         "northcyprus29",
+        # SearchNorthCyprus location-specific chats.
+        "searchgirne",
+        "lefkosasearch",
+        "iskelesearch",
+        "famagustasearchsnc",
+        # Broad local/Russian-speaking communities where buyer questions occur.
+        "cyprusposter",
+        "cyprusmedicine",
+        "nedvizhimost_kipr",
     } | _dynamic_channels,
     "catalogs": {"TeleGid Cyprus", "SNC Community Hub"},
     "member": True,
