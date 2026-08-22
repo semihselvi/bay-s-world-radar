@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 
 import main
 import shard_runner
@@ -84,6 +85,54 @@ _dynamic_channels = _load_dynamic_channels()
 # The dedicated hunter can use community domains that the general World Radar
 # intentionally keeps out of its stricter production allow-list.
 north_cyprus_focus.ALLOWED_USER_DOMAINS.add("forum.awd.ru")
+
+# High-recall scanning also sees service advertisements in mixed Cyprus groups.
+# Keep those out without narrowing genuine property-buyer phrases. A direct
+# transfer-service phrase is enough; otherwise require several commercial signals.
+_original_promotional_service_ad = north_cyprus_focus._promotional_service_ad
+TRANSFER_SERVICE_PATTERNS = [
+    r"услуги трансфера",
+    r"трансфер (?:в|до|из) аэропорт",
+    r"трансфер до места проживания",
+    r"airport transfer",
+    r"transfer service",
+    r"licensed (?:car|vehicle)",
+    r"лицензированн(?:ых|ые) автомобил",
+    r"надежный водитель",
+    r"встреч[аи] в аэропорте",
+    r"детск(?:ого|ое) кресл",
+    r"mercedes vito",
+    r"mercedes v[- ]?class",
+    r"mercedes e[- ]?class",
+]
+
+
+def _promotional_or_transfer_service_ad(text):
+    if _original_promotional_service_ad(text):
+        return True
+    direct = re.search(
+        r"услуги трансфера|airport transfer|transfer service|трансфер до места проживания",
+        text,
+        re.I,
+    )
+    if direct:
+        return True
+    hits = sum(1 for pattern in TRANSFER_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    commercial_hits = sum(
+        1
+        for pattern in (
+            r"\+?90\s*5\d{2}",
+            r"\bотличн(?:ые|ая) альтернативы по цене\b",
+            r"\b1\s*до\s*7 человек\b",
+            r"\bводитель\b",
+            r"\bаэропорт\b",
+        )
+        if re.search(pattern, text, re.I)
+    )
+    return hits >= 2 or (hits >= 1 and commercial_hits >= 2)
+
+
+north_cyprus_focus._promotional_service_ad = _promotional_or_transfer_service_ad
 
 # Kibkom exposes current/latest topic links on its public index. Individual sales
 # areas can require login, but scanning the public latest-topic surface is free.
