@@ -88,7 +88,7 @@ north_cyprus_focus.ALLOWED_USER_DOMAINS.add("forum.awd.ru")
 
 # High-recall scanning also sees service advertisements in mixed Cyprus groups.
 # Keep those out without narrowing genuine property-buyer phrases. A direct
-# transfer-service phrase is enough; otherwise require several commercial signals.
+# service phrase is enough; otherwise require several commercial signals.
 _original_promotional_service_ad = north_cyprus_focus._promotional_service_ad
 TRANSFER_SERVICE_PATTERNS = [
     r"услуги трансфера",
@@ -106,19 +106,42 @@ TRANSFER_SERVICE_PATTERNS = [
     r"mercedes e[- ]?class",
 ]
 
+EDUCATION_SERVICE_PATTERNS = [
+    r"study in north cyprus",
+    r"\bscholarship(?:s)?\b",
+    r"up to 100% scholarship",
+    r"university admission",
+    r"visa support",
+    r"student job access",
+    r"settlement support",
+    r"accommodation.*settlement",
+    r"limited slots",
+    r"upcoming semester",
+    r"begin your application",
+    r"apply (?:now|today)",
+    r"partner universities",
+    r"\b(?:ciu|rauf|bau|fiu|gau|emu)\b",
+    r"\bsnc study\b",
+    r"@snc[_ ]?comm\b",
+    r"€\s*100\s*cashback",
+    r"starting from just\s*\$?\s*\d",
+]
+
 
 def _promotional_or_transfer_service_ad(text):
     if _original_promotional_service_ad(text):
         return True
-    direct = re.search(
+
+    # Transfer providers.
+    direct_transfer = re.search(
         r"услуги трансфера|airport transfer|transfer service|трансфер до места проживания",
         text,
         re.I,
     )
-    if direct:
+    if direct_transfer:
         return True
-    hits = sum(1 for pattern in TRANSFER_SERVICE_PATTERNS if re.search(pattern, text, re.I))
-    commercial_hits = sum(
+    transfer_hits = sum(1 for pattern in TRANSFER_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    transfer_commercial_hits = sum(
         1
         for pattern in (
             r"\+?90\s*5\d{2}",
@@ -129,7 +152,17 @@ def _promotional_or_transfer_service_ad(text):
         )
         if re.search(pattern, text, re.I)
     )
-    return hits >= 2 or (hits >= 1 and commercial_hits >= 2)
+    if transfer_hits >= 2 or (transfer_hits >= 1 and transfer_commercial_hits >= 2):
+        return True
+
+    # University-admission / scholarship agencies. These frequently contain
+    # accommodation, settlement and a price, which can otherwise resemble a
+    # relocation/property request. Require a clear education phrase or several
+    # education-commercial signals so genuine buyers mentioning a university are kept.
+    if re.search(r"study in north cyprus|university admission|up to 100% scholarship|snc study", text, re.I):
+        return True
+    education_hits = sum(1 for pattern in EDUCATION_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    return education_hits >= 3
 
 
 north_cyprus_focus._promotional_service_ad = _promotional_or_transfer_service_ad
@@ -191,7 +224,8 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
         "ev ariyorum, daire ariyorum, var mi, ne kadar, hangi bolge, butce, pesinat, taksit, хочу купить, ищу квартиру, "
         "что можно купить, сколько стоит, какой район лучше, рассрочка. Prioritize recent user posts/comments in "
         "r/NorthCyprus, r/cyprus, r/expats, r/Investors, r/realestateinvesting, expat forums, Facebook groups and Telegram "
-        "communities. Exclude agents, brokers, developers, listings, advertising, rental-only requests, guides and news."
+        "communities. Exclude agents, brokers, developers, listings, advertising, transfer services, education/admission "
+        "agencies, scholarship promotions, rental-only requests, guides and news."
     ),
     "exa_domains": [
         "reddit.com",
