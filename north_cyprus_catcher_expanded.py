@@ -4,6 +4,7 @@ import os
 import north_cyprus_catcher as base
 import north_cyprus_focus as nf
 import north_cyprus_spam_guard
+import north_cyprus_reply_context  # patches base classifier for terse replies under property posts
 import telegram_global_search as tgs
 
 from north_cyprus_conversation import stitch_conversations
