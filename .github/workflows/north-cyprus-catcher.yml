@@ -3,9 +3,9 @@ name: BAY-S North Cyprus Buyer Catcher
 on:
   workflow_dispatch:
   schedule:
-    # Turkey time UTC+3. Free Telegram search, staggered from other radar lanes.
-    - cron: "52 6 * * *"             # 09:52 Turkey: 24h catch-up + forum + public group discovery
-    - cron: "52 9,12,15,18 * * *"    # 12:52/15:52/18:52/21:52 Turkey: fresh pulses
+    # Turkey time UTC+3. Broad free discovery, staggered from other radar lanes.
+    - cron: "52 6 * * *"                  # 09:52: 24h catch-up + forums + public discovery + open web
+    - cron: "52 9,12,15,18,20 * * *"     # 12:52/15:52/18:52/21:52/23:52 fresh pulses
 
 concurrency:
   group: bay-s-nc-buyer-catcher-${{ github.event.schedule || 'manual' }}
@@ -14,31 +14,37 @@ concurrency:
 jobs:
   nc-buyer-catcher:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py telegram_global_search.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_guarded.py
-
-      - name: Run maximum-recall North Cyprus catcher
-        timeout-minutes: 20
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_global_search.py telegram_member_deep_search.py telegram_channel_comments.py north_cyprus_open_web.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py
+      - name: Run expanded North Cyprus catcher
+        timeout-minutes: 25
         env:
           WORLD_LOOKBACK_HOURS: ${{ github.event_name == 'workflow_dispatch' && '24' || (github.event.schedule == '52 6 * * *' && '24' || '4') }}
           WORLD_TELEGRAM_GLOBAL_QUERY_LIMIT: "16"
-          WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY: "25"
+          WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY: "30"
           WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
-          WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT: "28"
-          WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES: "70"
+          WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT: "35"
+          WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES: "90"
+          WORLD_TELEGRAM_DEEP_MAX_DIALOGS: ${{ github.event.schedule == '52 6 * * *' && '32' || '24' }}
+          WORLD_TELEGRAM_DEEP_QUERY_LIMIT: "8"
+          WORLD_TELEGRAM_DEEP_RESULTS: "18"
+          WORLD_TELEGRAM_COMMENT_CHANNEL_LIMIT: "14"
+          WORLD_TELEGRAM_COMMENT_MESSAGES: ${{ github.event.schedule == '52 6 * * *' && '100' || '60' }}
+          NC_OPEN_WEB_ENABLED: "1"
+          NC_OPEN_WEB_MODE: ${{ github.event.schedule == '52 6 * * *' && 'full' || 'pulse' }}
+          NC_REDDIT_RSS_FEED_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '8' || '4' }}
+          NC_BING_RSS_QUERY_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '12' || '5' }}
+          NC_DYNAMIC_COMMUNITY_LIMIT: "24"
           NC_CATCHER_FORUM: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -46,8 +52,8 @@ jobs:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
-        run: python north_cyprus_catcher_guarded.py
-
+          WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
+        run: python north_cyprus_catcher_expanded.py
       - name: Notify catcher failure
         if: failure()
         env:
@@ -56,12 +62,7 @@ jobs:
         run: |
           python - <<'PY'
           import os, requests
-          token=os.getenv('TELEGRAM_BOT_TOKEN','').strip()
-          chat=os.getenv('TELEGRAM_CHAT_ID','').strip()
+          token=os.getenv('TELEGRAM_BOT_TOKEN','').strip(); chat=os.getenv('TELEGRAM_CHAT_ID','').strip()
           if token and chat:
-              requests.post(
-                  f'https://api.telegram.org/bot{token}/sendMessage',
-                  json={'chat_id':chat,'text':'⚠️ BAY-S NC BUYER CATCHER failed. Check GitHub Actions.'},
-                  timeout=15,
-              )
+              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':'⚠️ BAY-S NC BUYER CATCHER failed. Check GitHub Actions.'},timeout=15)
           PY
