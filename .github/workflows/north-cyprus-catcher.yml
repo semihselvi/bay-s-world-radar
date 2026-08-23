@@ -25,7 +25,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_open_web.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py
       - name: Run expanded North Cyprus catcher
         timeout-minutes: 25
         env:
@@ -49,8 +49,8 @@ jobs:
           NC_STITCH_GAP_HOURS: "6"
           NC_OPEN_WEB_ENABLED: "1"
           NC_OPEN_WEB_MODE: ${{ github.event.schedule == '52 6 * * *' && 'full' || 'pulse' }}
-          NC_REDDIT_RSS_FEED_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '8' || '4' }}
-          NC_BING_RSS_QUERY_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '18' || '6' }}
+          NC_REDDIT_RSS_FEED_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '14' || '6' }}
+          NC_BING_RSS_QUERY_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '20' || '7' }}
           NC_DYNAMIC_COMMUNITY_LIMIT: "30"
           NC_CATCHER_FORUM: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
