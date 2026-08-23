@@ -13,6 +13,9 @@ KNOWN_GROUPS = [
     "cyprusy","cyprusposter","severnyy_kipr","north_cypruschat","northcypruschat","nordcyprus",
     "base_north_cyprus","kibris_cyprus","caesar_resort_chat","kipr_severnii","cyprusforum",
     "cyprus_nedvizhimost","meetinnorthcyprus","searchgirne","iskelesearch","famagustasearchsnc","lefkosasearch",
+    # Newly discovered active public communities. These are discussion/marketplace groups,
+    # not one-way property channels; service-ad noise is handled by the NC spam guards.
+    "NorthCyprus_Island","severnyi_kipr_russian","northcyprusok",
 ]
 
 
@@ -33,7 +36,7 @@ async def _collect():
     api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip(); session=os.getenv("TELEGRAM_STRING_SESSION","").strip()
     if not api_id or not api_hash or not session: return []
     lookback=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback)
-    max_groups=max(1,min(len(KNOWN_GROUPS),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","17"))))
+    max_groups=max(1,min(len(KNOWN_GROUPS),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","20"))))
     max_messages=max(30,min(180,int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES","100"))))
     client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
     if not await client.is_user_authorized(): await client.disconnect(); return []
