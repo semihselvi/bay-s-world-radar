@@ -9,6 +9,7 @@ from north_cyprus_open_web import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from telegram_channel_comments import collect_channel_comments
 from telegram_known_public_groups import collect_known_public_groups
 from telegram_member_deep_search import collect_member_deep_search
+from telegram_network_crawler import crawl_network
 
 for _domain in OPEN_WEB_ALLOWED_DOMAINS:
     nf.ALLOWED_USER_DOMAINS.add(_domain)
@@ -44,62 +45,51 @@ PUBLIC_GROUP_DISCOVERY_QUERIES = [
 
 
 def _unique(values):
-    out = []
-    seen = set()
+    out=[]; seen=set()
     for value in values:
-        key = value.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(value)
+        key=value.casefold()
+        if key in seen: continue
+        seen.add(key); out.append(value)
     return out
 
 
 def _rotating_queries():
-    all_queries = _unique(list(tgs.GLOBAL_QUERIES) + EXTRA_GLOBAL_QUERIES)
-    core_keys = {c.casefold() for c in CORE_GLOBAL_QUERIES}
-    rotating = [x for x in all_queries if x.casefold() not in core_keys]
-    rotate_count = 10
-    if not rotating:
-        return CORE_GLOBAL_QUERIES[:]
-    now = datetime.now(timezone.utc)
-    slot = now.timetuple().tm_yday * 8 + now.hour // 3
-    start = (slot * rotate_count) % len(rotating)
-    selected = [rotating[(start + i) % len(rotating)] for i in range(min(rotate_count, len(rotating)))]
-    return _unique(CORE_GLOBAL_QUERIES + selected)
+    all_queries=_unique(list(tgs.GLOBAL_QUERIES)+EXTRA_GLOBAL_QUERIES)
+    core_keys={c.casefold() for c in CORE_GLOBAL_QUERIES}
+    rotating=[x for x in all_queries if x.casefold() not in core_keys]
+    rotate_count=10
+    if not rotating: return CORE_GLOBAL_QUERIES[:]
+    now=datetime.now(timezone.utc); slot=now.timetuple().tm_yday*8+now.hour//3
+    start=(slot*rotate_count)%len(rotating)
+    selected=[rotating[(start+i)%len(rotating)] for i in range(min(rotate_count,len(rotating)))]
+    return _unique(CORE_GLOBAL_QUERIES+selected)
 
 
-tgs.GLOBAL_QUERIES = _rotating_queries()
-tgs.PUBLIC_GROUP_DISCOVERY_QUERIES = _unique(list(tgs.PUBLIC_GROUP_DISCOVERY_QUERIES) + PUBLIC_GROUP_DISCOVERY_QUERIES)
-
-_original_collect_global = base.collect_global_telegram
+tgs.GLOBAL_QUERIES=_rotating_queries()
+tgs.PUBLIC_GROUP_DISCOVERY_QUERIES=_unique(list(tgs.PUBLIC_GROUP_DISCOVERY_QUERIES)+PUBLIC_GROUP_DISCOVERY_QUERIES)
+_original_collect_global=base.collect_global_telegram
 
 
 def expanded_collect_global():
-    buckets = []
-    normal_global = _original_collect_global()
-    buckets.append(("telegram_global_public", normal_global))
-    known_groups = collect_known_public_groups()
-    buckets.append(("telegram_verified_groups", known_groups))
-    deep_member = collect_member_deep_search()
-    buckets.append(("telegram_joined_deep", deep_member))
-    channel_comments = collect_channel_comments()
-    buckets.append(("telegram_channel_comments", channel_comments))
-    open_web = collect_open_web()
-    buckets.append(("open_web_reddit_bing_dynamic", open_web))
-
-    unique = {}
-    counts = {}
-    for name, items in buckets:
-        counts[name] = len(items)
+    # Morning/full runs can discover t.me links inside the existing community graph.
+    # Public groups are persisted automatically; private invites are only surfaced as a JOIN LIST.
+    network_stats=crawl_network()
+    buckets=[]
+    normal_global=_original_collect_global(); buckets.append(("telegram_global_public",normal_global))
+    known_groups=collect_known_public_groups(); buckets.append(("telegram_verified_groups",known_groups))
+    deep_member=collect_member_deep_search(); buckets.append(("telegram_joined_deep",deep_member))
+    channel_comments=collect_channel_comments(); buckets.append(("telegram_channel_comments",channel_comments))
+    open_web=collect_open_web(); buckets.append(("open_web_reddit_bing_dynamic",open_web))
+    unique={}; counts={}
+    for name,items in buckets:
+        counts[name]=len(items)
         for item in items:
-            key = item.get("url") or base.main.dedupe_key(item)
-            unique[key] = item
-    print("NC_EXPANDED_SOURCE_COUNTS", counts, "unique", len(unique))
+            key=item.get("url") or base.main.dedupe_key(item); unique[key]=item
+    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"unique",len(unique))
     return list(unique.values())
 
 
-base.collect_global_telegram = expanded_collect_global
+base.collect_global_telegram=expanded_collect_global
 
-if __name__ == "__main__":
+if __name__=="__main__":
     base.run()
