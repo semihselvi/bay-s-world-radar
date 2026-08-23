@@ -7,6 +7,7 @@ from telethon.errors import FloodWaitError
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Chat, User
 
+from north_cyprus_source_performance import ranked_dialogs
 from telegram_message_context import reply_context
 
 
@@ -16,6 +17,7 @@ DEEP_BUYER_QUERIES = [
     "hangi bölge", "hangi proje", "koçan", "tapı", "oturum",
     "ищу", "хочу купить", "нужна квартира", "цена", "рассрочка", "вторичка", "какой район",
     "шукаю квартиру", "хочу купити", "szukam mieszkania", "chcę kupić",
+    "خرید ملک", "خرید آپارتمان", "دنبال آپارتمان", "قیمت", "بودجه", "اقساط",
 ]
 
 NC_TITLE_HINTS = [
@@ -23,7 +25,7 @@ NC_TITLE_HINTS = [
     "cyprus", "kıbrıs", "kibris", "кипр", "girne", "kyrenia", "iskele", "i̇skele",
     "long beach", "esentepe", "famagusta", "gazimağusa", "gazimagusa", "tatlısu", "tatlisu",
     "bafra", "lapta", "alsancak", "karşıyaka", "karsiyaka", "snc", "caesar", "sapphire",
-    "isatis", "elysium", "fiora", "royal sun", "riverside",
+    "isatis", "elysium", "fiora", "royal sun", "riverside", "قبرس", "ایسکله", "اسکله", "گیرنه",
 ]
 
 
@@ -86,9 +88,9 @@ async def _collect():
 
     lookback_hours = int(os.getenv("WORLD_LOOKBACK_HOURS", "8"))
     cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-    max_dialogs = max(5, min(60, int(os.getenv("WORLD_TELEGRAM_DEEP_MAX_DIALOGS", "24"))))
-    query_limit = max(2, min(12, int(os.getenv("WORLD_TELEGRAM_DEEP_QUERY_LIMIT", "8"))))
-    results_per_query = max(5, min(40, int(os.getenv("WORLD_TELEGRAM_DEEP_RESULTS", "18"))))
+    max_dialogs = max(5, min(80, int(os.getenv("WORLD_TELEGRAM_DEEP_MAX_DIALOGS", "36"))))
+    query_limit = max(2, min(14, int(os.getenv("WORLD_TELEGRAM_DEEP_QUERY_LIMIT", "8"))))
+    results_per_query = max(5, min(50, int(os.getenv("WORLD_TELEGRAM_DEEP_RESULTS", "18"))))
     queries = _rotating_queries(query_limit)
 
     client = TelegramClient(StringSession(session), int(api_id), api_hash)
@@ -101,7 +103,10 @@ async def _collect():
     items = {}
     dialogs = []
     try:
-        async for dialog in client.iter_dialogs(limit=220):
+        # Collect the whole relevant dialog universe first, then rank it. The old
+        # code stopped at the first N dialogs, which could permanently hide a
+        # productive group simply because Telegram listed it later.
+        async for dialog in client.iter_dialogs(limit=260):
             entity = dialog.entity
             if not _discussion_group(entity):
                 continue
@@ -109,11 +114,12 @@ async def _collect():
             if not _title_allowed(title):
                 continue
             dialogs.append((entity, title))
-            if len(dialogs) >= max_dialogs:
-                break
+
+        dialogs = ranked_dialogs(dialogs)[:max_dialogs]
 
         for d_idx, (entity, title) in enumerate(dialogs, 1):
             chat_hits = 0
+            source_username = str(getattr(entity, "username", "") or "").strip().lstrip("@")
             for query in queries:
                 try:
                     async for msg in client.iter_messages(entity, search=query, limit=results_per_query):
@@ -141,7 +147,7 @@ async def _collect():
                             "title": f"Telegram Deep | {title}", "text": text,
                             "published": dt.astimezone(timezone.utc).isoformat(),
                             "author": _sender_name(sender), "source_bucket": "telegram_member_deep_search",
-                            "telegram_chat": title, "telegram_query": query,
+                            "telegram_chat": title, "source_username": source_username, "telegram_query": query,
                             "reply_context": parent_text,
                         }
                         chat_hits += 1
