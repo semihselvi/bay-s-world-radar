@@ -78,8 +78,6 @@ def score_doc(data):
     accepted = max(0, int(data.get("accepted", 0) or 0))
     promo = max(0, int(data.get("promo", 0) or 0))
 
-    # Reward actual buyer yield much more than raw traffic. Use sqrt(message count)
-    # so huge noisy groups do not automatically beat smaller productive groups.
     lead_value = hot * 32 + warm * 15 + potential * 6 + accepted * 2
     yield_score = (lead_value * 10.0) / math.sqrt(messages + 25)
     activity = min(10.0, math.log1p(messages) * 1.6)
@@ -128,45 +126,60 @@ def flush():
         print("NC_SOURCE_PERFORMANCE_FLUSH_ERROR", exc)
 
 
-def ranked_usernames(usernames):
-    """Rank known Telegram usernames by observed buyer yield, without starving exploration."""
-    names = []
-    seen = set()
-    for value in usernames:
-        name = str(value or "").strip().lstrip("@")
-        if not name or name.lower() in seen:
-            continue
-        seen.add(name.lower())
-        names.append(name)
-    if len(names) <= 1:
-        return names
-
+def _score_maps():
+    username_scores = {}
+    title_scores = {}
     db = main.firestore_client()
-    scores = {}
-    if db:
-        try:
-            for doc in db.collection(COLLECTION).limit(300).stream():
-                data = doc.to_dict() or {}
-                username = str(data.get("source_username") or "").strip().lstrip("@").lower()
-                if username:
-                    scores[username] = float(data.get("priority_score", score_doc(data)) or 0)
-        except Exception as exc:
-            print("NC_SOURCE_PERFORMANCE_LOAD_ERROR", exc)
+    if not db:
+        return username_scores, title_scores
+    try:
+        for doc in db.collection(COLLECTION).limit(400).stream():
+            data = doc.to_dict() or {}
+            score = float(data.get("priority_score", score_doc(data)) or 0)
+            username = str(data.get("source_username") or "").strip().lstrip("@").lower()
+            title = _norm(data.get("telegram_chat"))
+            if username:
+                username_scores[username] = max(username_scores.get(username, -999), score)
+            if title:
+                title_scores[title] = max(title_scores.get(title, -999), score)
+    except Exception as exc:
+        print("NC_SOURCE_PERFORMANCE_LOAD_ERROR", exc)
+    return username_scores, title_scores
 
-    productive = sorted(names, key=lambda x: (scores.get(x.lower(), 0.0), x.lower()), reverse=True)
 
-    # 75% performance-ranked + 25% rotating exploration. This means a source with
-    # zero historical leads keeps getting chances and can climb later.
-    keep = max(1, int(len(names) * 0.75))
-    top = productive[:keep]
-    rest = [x for x in names if x not in top]
+def ranked_usernames(usernames):
+    names=[]; seen=set()
+    for value in usernames:
+        name=str(value or "").strip().lstrip("@")
+        if not name or name.lower() in seen: continue
+        seen.add(name.lower()); names.append(name)
+    if len(names)<=1: return names
+    username_scores,_=_score_maps()
+    productive=sorted(names,key=lambda x:(username_scores.get(x.lower(),0.0),x.lower()),reverse=True)
+    keep=max(1,int(len(names)*0.75)); top=productive[:keep]; rest=[x for x in names if x not in top]
     if rest:
-        now = datetime.now(timezone.utc)
-        slot = now.timetuple().tm_yday * 8 + now.hour // 3
-        shift = slot % len(rest)
-        rest = rest[shift:] + rest[:shift]
-    ranked = top + rest
-    print("NC_SOURCE_PRIORITY top=" + ",".join(f"@{x}:{scores.get(x.lower(),0):.1f}" for x in ranked[:10]))
+        now=datetime.now(timezone.utc); slot=now.timetuple().tm_yday*8+now.hour//3; shift=slot%len(rest); rest=rest[shift:]+rest[:shift]
+    ranked=top+rest
+    print("NC_SOURCE_PRIORITY top="+",".join(f"@{x}:{username_scores.get(x.lower(),0):.1f}" for x in ranked[:10]))
+    return ranked
+
+
+def ranked_dialogs(entries):
+    """Rank (entity,title) Telegram dialogs using username or private-group title history."""
+    if len(entries)<=1: return entries
+    username_scores,title_scores=_score_maps()
+    def score(entry):
+        entity,title=entry
+        username=str(getattr(entity,"username","") or "").strip().lstrip("@").lower()
+        by_user=username_scores.get(username,-1.0) if username else -1.0
+        by_title=title_scores.get(_norm(title),-1.0)
+        return max(by_user,by_title,0.0)
+    productive=sorted(entries,key=lambda x:(score(x),_norm(x[1])),reverse=True)
+    keep=max(1,int(len(entries)*0.75)); top=productive[:keep]; rest=[x for x in entries if x not in top]
+    if rest:
+        now=datetime.now(timezone.utc); slot=now.timetuple().tm_yday*8+now.hour//3; shift=slot%len(rest); rest=rest[shift:]+rest[:shift]
+    ranked=top+rest
+    print("NC_DIALOG_PRIORITY top="+",".join(f"{x[1][:35]}:{score(x):.1f}" for x in ranked[:8]))
     return ranked
 
 
