@@ -24,6 +24,7 @@ STATIC_JOIN_CANDIDATES = {
     "https://t.me/+1s8HYWeJIN81NDdk", # Turkey + North Cyprus property community
     "https://t.me/+WZluIebsLjwxYTFk",
     "https://t.me/+9zAKnC6fojdlMDBk", # Iranians North Cyprus community
+    "https://t.me/+S9eHfRwbsJgVK84l", # active Persian-speaking NC experience/investment community
     "https://t.me/+Z_JMGTu9Zs44ODY6", # North Cyprus general community
 }
 
