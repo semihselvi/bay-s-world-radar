@@ -22,6 +22,9 @@ KNOWN_GROUPS = [
     # Broader Cyprus relocation/expat surfaces: only messages with explicit NC
     # context survive classification, so these are high-recall but low-risk.
     "forum_cyprus","kipr_relokaciya","cyprus_expats",
+    # Large Russian-speaking Cyprus property/general chats found in current
+    # public mirrors. North-Cyprus context remains mandatory at classification.
+    "CypRusPropertyChat","cyprus_chat",
 ]
 
 
@@ -42,7 +45,7 @@ async def _collect():
     api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip(); session=os.getenv("TELEGRAM_STRING_SESSION","").strip()
     if not api_id or not api_hash or not session: return []
     lookback=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback)
-    max_groups=max(1,min(len(KNOWN_GROUPS),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","30"))))
+    max_groups=max(1,min(len(KNOWN_GROUPS),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","32"))))
     max_messages=max(30,min(180,int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES","100"))))
     client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
     if not await client.is_user_authorized(): await client.disconnect(); return []
