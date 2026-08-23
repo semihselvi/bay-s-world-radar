@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Turkey time UTC+3. Broad free discovery, staggered from other radar lanes.
-    - cron: "52 6 * * *"                  # 09:52: 24h catch-up + forums + public discovery + open web
+    - cron: "52 6 * * *"                  # 09:52: 24h catch-up + forums + public discovery + open web + source network crawl
     - cron: "52 9,12,15,18,20 * * *"     # 12:52/15:52/18:52/21:52/23:52 fresh pulses
 
 concurrency:
@@ -25,7 +25,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py north_cyprus_open_web.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_open_web.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py
       - name: Run expanded North Cyprus catcher
         timeout-minutes: 25
         env:
@@ -42,6 +42,11 @@ jobs:
           WORLD_TELEGRAM_DEEP_RESULTS: "18"
           WORLD_TELEGRAM_COMMENT_CHANNEL_LIMIT: "14"
           WORLD_TELEGRAM_COMMENT_MESSAGES: ${{ github.event.schedule == '52 6 * * *' && '100' || '60' }}
+          WORLD_TELEGRAM_NETWORK_CRAWL: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
+          WORLD_TELEGRAM_NETWORK_DIALOGS: "40"
+          WORLD_TELEGRAM_NETWORK_MESSAGES: "80"
+          WORLD_TELEGRAM_NETWORK_DAYS: "14"
+          NC_STITCH_GAP_HOURS: "6"
           NC_OPEN_WEB_ENABLED: "1"
           NC_OPEN_WEB_MODE: ${{ github.event.schedule == '52 6 * * *' && 'full' || 'pulse' }}
           NC_REDDIT_RSS_FEED_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '8' || '4' }}
