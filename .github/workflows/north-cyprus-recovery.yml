@@ -10,7 +10,7 @@ on:
   schedule:
     # Turkey time UTC+3. Monday-Saturday: 7-day recovery. Sunday: 30-day recovery.
     - cron: "32 5 * * 1-6"   # 08:32 Turkey
-    - cron: "32 4 * * 0"     # 07:32 Turkey Sunday
+    - cron: "32 13 * * 0"    # 16:32 Turkey Sunday
 
 concurrency:
   group: bay-s-nc-recovery-${{ github.event.schedule || 'manual' }}
@@ -33,7 +33,7 @@ jobs:
           python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_open_web.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py north_cyprus_recovery.py
       - name: Run recovery radar
         env:
-          NC_RECOVERY_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.days || (github.event.schedule == '32 4 * * 0' && '30' || '7') }}
+          NC_RECOVERY_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.days || (github.event.schedule == '32 13 * * 0' && '30' || '7') }}
           WORLD_TELEGRAM_GLOBAL_QUERY_LIMIT: "12"
           WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY: "45"
           WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS: "0"
@@ -46,7 +46,7 @@ jobs:
           WORLD_TELEGRAM_COMMENT_MESSAGES: "120"
           WORLD_TELEGRAM_NETWORK_CRAWL: "0"
           NC_OPEN_WEB_ENABLED: "0"
-          NC_CATCHER_FORUM: ${{ github.event.schedule == '32 4 * * 0' && '1' || '0' }}
+          NC_CATCHER_FORUM: ${{ github.event.schedule == '32 13 * * 0' && '1' || '0' }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
