@@ -94,6 +94,19 @@ RECRUITMENT_PATTERNS = [
     r"@snccenter02\b",
 ]
 
+# Generic money-making / side-income DM bait. Keep this narrow so legitimate
+# property investment discussions about rental income, yield or ROI are not blocked.
+EARNING_SPAM_PATTERNS = [
+    r"\bхочешь\s+узнать\s+(?:интересн\w+\s+)?способ\s+заработка\b",
+    r"\bинтересн\w+\s+способ\s+заработка\b",
+    r"\bспособ\s+заработка\b",
+    r"\bзаработок\s+(?:без\s+вложений|из\s+дома|онлайн)\b",
+    r"\bкак\s+заработать\b",
+    r"\bхочешь\s+зарабатывать\b",
+    r"\bпиши\s+(?:мне\s+)?в\s+(?:лс|личку)\b",
+    r"\bнапиши\s+(?:мне\s+)?в\s+(?:лс|личку)\b",
+]
+
 
 def promotional_service_or_recruitment_ad(text):
     if _original_promotional_service_ad(text):
@@ -108,8 +121,17 @@ def promotional_service_or_recruitment_ad(text):
     ):
         return True
 
-    hits = sum(1 for pattern in RECRUITMENT_PATTERNS if re.search(pattern, text, re.I | re.S))
-    return hits >= 3
+    recruitment_hits = sum(1 for pattern in RECRUITMENT_PATTERNS if re.search(pattern, text, re.I | re.S))
+    if recruitment_hits >= 3:
+        return True
+
+    # A direct money-making pitch plus DM CTA is enough to reject. A single
+    # mention of income/earnings remains allowed because genuine property buyers
+    # may discuss rental income or investment returns.
+    earning_hits = sum(1 for pattern in EARNING_SPAM_PATTERNS if re.search(pattern, text, re.I | re.S))
+    if re.search(r"\bхочешь\s+узнать\s+.*\bзаработ", text, re.I | re.S) and re.search(r"\bпиши\s+.*\b(?:лс|личку)\b", text, re.I | re.S):
+        return True
+    return earning_hits >= 2
 
 
 nf._promotional_service_ad = promotional_service_or_recruitment_ad
