@@ -1,6 +1,7 @@
 import re
 
 import north_cyprus_focus as nf
+import north_cyprus_language_expansion  # patches multilingual location/property/buyer patterns
 
 
 _original_promotional_service_ad = nf._promotional_service_ad
