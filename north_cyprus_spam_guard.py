@@ -5,6 +5,71 @@ import north_cyprus_focus as nf
 
 _original_promotional_service_ad = nf._promotional_service_ad
 
+# Real buyer language observed in live North Cyprus groups. These are layered
+# here so every guarded Hunter / Recall / Catcher / Recovery lane sees them
+# without loosening the generic seller filters.
+RUSSIAN_STRONG_BUYER_PATTERNS = [
+    r"\bсрочно\s+ищу(?:\s+на\s+покупку)?\b",
+    r"\bищу\s+на\s+покупку\b",
+    r"\bищу\s+(?:на\s+покупку\s+)?(?:отдельно\s*стоящую|отдельностоящую)?\s*вилл",
+    r"\bнужна\s+(?:отдельно\s*стоящая|отдельностоящая)?\s*вилл",
+    r"\bкуплю\s+(?:отдельно\s*стоящую|отдельностоящую)?\s*вилл",
+    r"\bищу\s+.*\bтолько\s+от\s+собственника\b",
+]
+
+RUSSIAN_REQUEST_BUYER_PATTERNS = [
+    r"\bтолько\s+от\s+собственника\b",
+    r"\bот\s+собственника\b",
+    r"\bбез\s+агент(?:ов|ств)?\b",
+    r"\bна\s+покупку\b",
+]
+
+RUSSIAN_NC_LOCATION_PATTERNS = [
+    r"\bискеле\b",
+    r"\bбоаз\b",
+    r"\bбогаз\b",
+    r"\bотюкен\b",
+    r"\bотукен\b",
+    r"\bйени\s*боазичи\b",
+    r"\bени\s*боазичи\b",
+    r"\bйенибоазичи\b",
+    r"\bенибоазичи\b",
+    r"\bгазимагуса\b",
+    r"\bфамагуста\b",
+    r"\bгирне\b",
+    r"\bэсентепе\b",
+    r"\bтатлысу\b",
+    r"\bбафра\b",
+    r"\bлапта\b",
+    r"\bалсанджак\b",
+    r"\bкараогланоглу\b",
+]
+
+RUSSIAN_CONCRETE_BUYER_PATTERNS = [
+    r"\bсрочно\b",
+    r"\bтолько\s+от\s+собственника\b",
+    r"\bот\s+собственника\b",
+    r"\bотдельно\s*стоящ(?:ая|ую|ей)\b",
+    r"\bотдельностоящ(?:ая|ую|ей)\b",
+]
+
+for _pattern in RUSSIAN_STRONG_BUYER_PATTERNS:
+    if _pattern not in nf.STRONG_BUYER_PATTERNS:
+        nf.STRONG_BUYER_PATTERNS.append(_pattern)
+
+for _pattern in RUSSIAN_REQUEST_BUYER_PATTERNS:
+    if _pattern not in nf.REQUEST_BUYER_PATTERNS:
+        nf.REQUEST_BUYER_PATTERNS.append(_pattern)
+
+for _pattern in RUSSIAN_NC_LOCATION_PATTERNS:
+    if _pattern not in nf.NC_LOCATION_PATTERNS:
+        nf.NC_LOCATION_PATTERNS.append(_pattern)
+
+for _pattern in RUSSIAN_CONCRETE_BUYER_PATTERNS:
+    if _pattern not in nf.CONCRETE_PATTERNS:
+        nf.CONCRETE_PATTERNS.append(_pattern)
+
+
 RECRUITMENT_PATTERNS = [
     r"join\s+snc\s+field\s+operatives",
     r"field representatives?",
