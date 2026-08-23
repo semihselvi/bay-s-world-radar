@@ -1,5 +1,7 @@
 import shard_runner
 import north_cyprus_hunter  # ensure dedicated shard exists
+import north_cyprus_language_expansion  # activate multilingual classifier rules
+import north_cyprus_farsi_expansion     # activate Persian/Farsi buyer wording
 from telegram_known_public_groups import KNOWN_GROUPS
 
 
@@ -26,11 +28,12 @@ catalogs.update({
 base_query = str(cfg.get("exa_query", ""))
 multilingual = (
     " Also search Polish, Ukrainian, Swedish, Norwegian, Danish, Italian, Spanish, Portuguese, Czech, Estonian, Arabic, "
-    "Hebrew and Kazakh buyer wording. Include Cypr Polnocny/Cypr Północny, Pivnichnyi Kipr/Північний Кіпр, Norra Cypern, "
-    "Nord-Kypros, Nordcypern, Cipro Nord/Cipro del Nord, Chipre del Norte, Chipre do Norte, Severni Kypr/Severní Kypr, "
-    "Pohja-Kupros/Põhja-Küpros, قبرص الشمالية, צפון קפריסין/קפריסין הצפונית and Солтүстік Кипр. Look for first-person "
+    "Hebrew, Kazakh and Persian/Farsi buyer wording. Include Cypr Polnocny/Cypr Północny, Pivnichnyi Kipr/Північний Кіпр, "
+    "Norra Cypern, Nord-Kypros, Nordcypern, Cipro Nord/Cipro del Nord, Chipre del Norte, Chipre do Norte, Severni Kypr/Severní Kypr, "
+    "Pohja-Kupros/Põhja-Küpros, قبرص الشمالية, צפון קפריסין/קפריסין הצפונית, Солтүстік Кипр and قبرس شمالی. Look for first-person "
     "phrases equivalent to want to buy, looking for a house/apartment/villa, price, budget, owner direct, installment, "
-    "resale, title deed and which area/project is best. Prioritize genuine person posts/comments, not agency pages."
+    "resale, title deed and which area/project is best. In Persian include خرید ملک, خرید آپارتمان, دنبال آپارتمان هستم, "
+    "قیمت, بودجه, اقساط and مستقیم از مالک. Prioritize genuine person posts/comments, not agency pages."
 )
 if multilingual.strip() not in base_query:
     cfg["exa_query"] = base_query + multilingual
