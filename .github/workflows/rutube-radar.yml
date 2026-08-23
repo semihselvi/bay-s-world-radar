@@ -1,0 +1,49 @@
+name: BAY-S RuTube Radar
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Turkey time UTC+3. No Exa; best-effort public RuTube API.
+    - cron: "42 5 * * *"        # 08:42 discover + 24h comment catch-up
+    - cron: "42 11,17 * * *"    # 14:42 / 20:42 comment pulses
+
+concurrency:
+  group: bay-s-rutube-radar-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  rutube-radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Syntax check
+        run: python -m py_compile main.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_catcher.py north_cyprus_spam_guard.py rutube_radar.py
+      - name: Run RuTube Radar
+        env:
+          RUTUBE_MODE: ${{ github.event_name == 'workflow_dispatch' && 'discover_scan' || (github.event.schedule == '42 5 * * *' && 'discover_scan' || 'scan') }}
+          RUTUBE_QUERY_LIMIT: "4"
+          RUTUBE_WATCHLIST_LIMIT: "100"
+          RUTUBE_LOOKBACK_HOURS: ${{ github.event.schedule == '42 5 * * *' && '24' || '7' }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python rutube_radar.py
+      - name: Notify failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os, requests
+          token=os.getenv('TELEGRAM_BOT_TOKEN','').strip(); chat=os.getenv('TELEGRAM_CHAT_ID','').strip()
+          if token and chat:
+              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':'⚠️ BAY-S RUTUBE RADAR failed. Best-effort source may have rate-limited; other radars continue.'},timeout=15)
+          PY
