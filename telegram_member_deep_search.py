@@ -7,11 +7,14 @@ from telethon.errors import FloodWaitError
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Chat, User
 
+from telegram_message_context import reply_context
+
 
 DEEP_BUYER_QUERIES = [
     "looking for", "want to buy", "price", "resale", "available", "1+1", "2+1", "3+1",
     "arıyorum", "almak istiyorum", "sahibinden", "var mı", "fiyat", "peşinat", "taksit",
-    "ищу", "хочу купить", "нужна квартира", "цена", "рассрочка", "вторичка",
+    "hangi bölge", "hangi proje", "koçan", "tapı", "oturum",
+    "ищу", "хочу купить", "нужна квартира", "цена", "рассрочка", "вторичка", "какой район",
     "шукаю квартиру", "хочу купити", "szukam mieszkania", "chcę kupić",
 ]
 
@@ -132,12 +135,14 @@ async def _collect():
                         if not text:
                             continue
                         url = _chat_link(entity, msg.id)
+                        parent_text = await reply_context(msg)
                         items[url] = {
                             "source": "Telegram Joined-Group Deep Search", "url": url,
                             "title": f"Telegram Deep | {title}", "text": text,
                             "published": dt.astimezone(timezone.utc).isoformat(),
                             "author": _sender_name(sender), "source_bucket": "telegram_member_deep_search",
                             "telegram_chat": title, "telegram_query": query,
+                            "reply_context": parent_text,
                         }
                         chat_hits += 1
                 except FloodWaitError as exc:
