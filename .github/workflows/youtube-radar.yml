@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Syntax check
-        run: python -m py_compile main.py youtube_radar.py youtube_radar_expanded.py
+        run: python -m py_compile main.py youtube_radar.py youtube_comment_expansion.py youtube_radar_expanded.py
       - name: Check YouTube Radar secret
         id: keycheck
         env:
@@ -55,7 +55,10 @@ jobs:
           YOUTUBE_SEARCH_RESULTS: "15"
           YOUTUBE_DISCOVERY_DAYS: "14"
           YOUTUBE_WATCHLIST_LIMIT: "160"
-          YOUTUBE_COMMENT_PAGES: "1"
+          YOUTUBE_COMMENT_PAGES: ${{ github.event.schedule == '45 4 * * 0' && '3' || github.event.schedule == '25 5 * * *' && '2' || '1' }}
+          YOUTUBE_FULL_REPLY_THREADS_PER_VIDEO: ${{ github.event.schedule == '45 4 * * 0' && '6' || github.event.schedule == '25 5 * * *' && '4' || '2' }}
+          YOUTUBE_FULL_REPLY_PAGES: "2"
+          YOUTUBE_SCAN_OLD_THREAD_REPLIES: "1"
           YOUTUBE_LOOKBACK_HOURS: ${{ github.event.schedule == '25 5 * * *' && '24' || github.event.schedule == '45 4 * * 0' && '72' || '3' }}
         run: python youtube_radar_expanded.py
       - name: Notify workflow failure
