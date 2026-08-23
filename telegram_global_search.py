@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -8,6 +9,7 @@ from telethon.sessions import StringSession
 from telethon.tl.functions.contacts import SearchRequest as SearchContactsRequest
 from telethon.tl.types import Channel, Chat, User
 
+import main
 from telegram_message_context import reply_context
 
 GLOBAL_QUERIES = [
@@ -52,7 +54,33 @@ async def _message_item(msg,chat,source,source_bucket,query=""):
     if not text: return None
     title=getattr(chat,"title","") or "Telegram public group"
     parent_text=await reply_context(msg)
-    return {"source":source,"url":_chat_link(chat,msg.id),"title":f"{source} | {title}","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":_sender_name(sender),"source_bucket":source_bucket,"telegram_chat":title,"telegram_query":query,"reply_context":parent_text}
+    source_username=str(getattr(chat,"username","") or "").strip().lstrip("@")
+    return {"source":source,"url":_chat_link(chat,msg.id),"title":f"{source} | {title}","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":_sender_name(sender),"source_bucket":source_bucket,"telegram_chat":title,"source_username":source_username,"telegram_query":query,"reply_context":parent_text}
+
+
+def _persist_discovered_groups(groups):
+    if not groups:
+        return
+    db=main.firestore_client()
+    if not db:
+        return
+    now=main.now_utc().isoformat(); saved=0
+    try:
+        for chat in groups:
+            username=str(getattr(chat,"username","") or "").strip().lstrip("@")
+            if not username:
+                continue
+            doc_id=hashlib.sha1(f"telegram_public|{username.lower()}".encode("utf-8")).hexdigest()
+            db.collection("bay_s_dynamic_sources").document(doc_id).set({
+                "type":"telegram_public","market":"north_cyprus","username":username,
+                "title":str(getattr(chat,"title","") or username),"url":f"https://t.me/{username}",
+                "status":"active","discovered_by":"telegram_contact_search","last_seen":now,
+            },merge=True)
+            saved+=1
+        if saved:
+            print(f"TELEGRAM_PUBLIC_DISCOVERY_SAVED count={saved}")
+    except Exception as exc:
+        print("TELEGRAM_PUBLIC_DISCOVERY_SAVE_ERROR",exc)
 
 
 async def _collect_global():
@@ -62,7 +90,7 @@ async def _collect_global():
     lookback_hours=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); query_limit=max(1,min(len(GLOBAL_QUERIES),int(os.getenv("WORLD_TELEGRAM_GLOBAL_QUERY_LIMIT","16"))))
     result_limit=max(5,min(60,int(os.getenv("WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY","30")))); cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback_hours)
     discover_public=os.getenv("WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS","0").strip()=="1"
-    public_group_limit=max(5,min(40,int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT","28")))); public_message_limit=max(20,min(150,int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES","70"))))
+    public_group_limit=max(5,min(60,int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT","40")))); public_message_limit=max(20,min(150,int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES","70"))))
     client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
     if not await client.is_user_authorized(): await client.disconnect(); return []
     items={}; query_counts={}; discovered_groups={}
@@ -89,7 +117,7 @@ async def _collect_global():
         if discover_public:
             for query in PUBLIC_GROUP_DISCOVERY_QUERIES:
                 try:
-                    result=await client(SearchContactsRequest(q=query,limit=20))
+                    result=await client(SearchContactsRequest(q=query,limit=30))
                     for chat in getattr(result,"chats",[]) or []:
                         if not isinstance(chat,Channel) or not getattr(chat,"megagroup",False): continue
                         username=str(getattr(chat,"username","") or "").strip()
@@ -115,6 +143,8 @@ async def _collect_global():
                     print(f"TELEGRAM_PUBLIC_GROUP_FLOOD_WAIT chat={getattr(chat,'title','')!r} seconds={exc.seconds}"); break
                 except Exception as exc: print(f"TELEGRAM_PUBLIC_GROUP_SCAN_ERROR chat={getattr(chat,'title','')!r} {exc}")
     finally: await client.disconnect()
+
+    _persist_discovered_groups(list(discovered_groups.values()))
     out=list(items.values()); out.sort(key=lambda x:x.get("published",""),reverse=True)
     print(f"TELEGRAM_GLOBAL_COUNTS queries={len(query_counts)} discovered_public_groups={len(discovered_groups)} unique_messages={len(out)}")
     return out
