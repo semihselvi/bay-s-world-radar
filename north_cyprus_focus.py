@@ -66,6 +66,7 @@ STRONG_BUYER_PATTERNS = [
 
 # People in property groups often write very short messages and omit pronouns and
 # the word "buy": "2+1 Long Beach var mı?", "what can I get for £100k?", etc.
+# These are valuable requests and must not be discarded just because they are terse.
 REQUEST_BUYER_PATTERNS = [
     r"\blooking for\b", r"\bseeking\b", r"\bany (?:1\+1|2\+1|3\+1|studio|apartment|flat|villa|property)\b",
     r"\bwhat can (?:i|we) get for\b", r"\bwhat (?:can|could) .* buy for\b",
@@ -155,6 +156,18 @@ PROMOTIONAL_SERVICE_PATTERNS = [
     r"instant notifications?",
     r"activate .*notifications?",
     r"smart filters?",
+    # Recruitment / commission-work promotions. These can contain apartment
+    # viewings, client sourcing and lead generation and otherwise look like property intent.
+    r"join .*field operatives",
+    r"field representatives?",
+    r"skills we(?:'re| are) looking for",
+    r"roles may include",
+    r"commission[- ]based",
+    r"not salaried",
+    r"apartment viewings.*assisting clients",
+    r"sourcing apartments directly from owners",
+    r"generating leads.*helping close deals",
+    r"send a message.*name.*location.*skills",
 ]
 
 
