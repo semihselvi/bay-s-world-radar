@@ -95,6 +95,28 @@ RECRUITMENT_PATTERNS = [
     r"@snccenter02\b",
 ]
 
+# Telegram group administration / moderation notices. These can be posted by a
+# human admin account and therefore look like normal user messages to Telethon,
+# but they carry zero buyer intent. Keep patterns action-oriented and narrow so
+# ordinary discussion about sending a link or photo is not suppressed.
+MODERATION_NOTICE_PATTERNS = [
+    # Russian
+    r"\bс этого момента\b.*\bвсе пользователи\b",
+    r"\bпользовател(?:и|ям)\b.*\bне смогут\b.*\bотправлять\b",
+    r"\bне смогут отправлять\b.*\b(?:медиа|фото|видео|файлы|ссылки)\b",
+    r"\bзапрещено отправлять\b.*\b(?:медиа|фото|видео|файлы|ссылки)\b",
+    r"\bтолько администратор(?:ы|ам)?\b.*\b(?:отправлять|писать)\b",
+    r"\bгруппа\b.*\b(?:закрыта для сообщений|только для чтения)\b",
+    # English
+    r"\ball (?:users|members)\b.*\b(?:cannot|can't|won't be able to) send\b.*\b(?:media|photos?|videos?|files?|links?)\b",
+    r"\bonly admins? can (?:send|post|write)\b",
+    r"\bgroup (?:is|has been) (?:set to )?read[- ]only\b",
+    # Turkish
+    r"\btüm (?:kullanıcılar|üyeler)\b.*\b(?:medya|fotoğraf|video|dosya|link|bağlantı)\b.*\bgönderemeyecek\b",
+    r"\b(?:medya|fotoğraf|video|dosya|link|bağlantı) gönderimi\b.*\b(?:yasaklandı|kapatıldı|durduruldu)\b",
+    r"\byalnızca yöneticiler\b.*\b(?:mesaj|medya|link|bağlantı) gönderebilir\b",
+]
+
 # Generic money-making / side-income DM bait. Keep this narrow so legitimate
 # property investment discussions about rental income, yield or ROI are not blocked.
 EARNING_SPAM_PATTERNS = [
@@ -111,6 +133,11 @@ EARNING_SPAM_PATTERNS = [
 
 def promotional_service_or_recruitment_ad(text):
     if _original_promotional_service_ad(text):
+        return True
+
+    # Group administration / permission changes are hard rejects even if a
+    # stitched/replied context elsewhere contains property words.
+    if any(re.search(pattern, text, re.I | re.S) for pattern in MODERATION_NOTICE_PATTERNS):
         return True
 
     # Clear recruitment copy is never a buyer lead even when it contains
