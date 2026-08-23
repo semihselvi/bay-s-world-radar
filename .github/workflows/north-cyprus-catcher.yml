@@ -33,25 +33,25 @@ jobs:
           WORLD_TELEGRAM_GLOBAL_QUERY_LIMIT: "16"
           WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY: "30"
           WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
-          WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT: "35"
+          WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT: "40"
           WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES: "90"
-          WORLD_TELEGRAM_KNOWN_GROUP_LIMIT: "20"
+          WORLD_TELEGRAM_KNOWN_GROUP_LIMIT: "30"
           WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES: ${{ github.event.schedule == '52 6 * * *' && '120' || '70' }}
-          WORLD_TELEGRAM_DEEP_MAX_DIALOGS: ${{ github.event.schedule == '52 6 * * *' && '32' || '24' }}
+          WORLD_TELEGRAM_DEEP_MAX_DIALOGS: ${{ github.event.schedule == '52 6 * * *' && '36' || '28' }}
           WORLD_TELEGRAM_DEEP_QUERY_LIMIT: "8"
           WORLD_TELEGRAM_DEEP_RESULTS: "18"
-          WORLD_TELEGRAM_COMMENT_CHANNEL_LIMIT: "14"
+          WORLD_TELEGRAM_COMMENT_CHANNEL_LIMIT: "20"
           WORLD_TELEGRAM_COMMENT_MESSAGES: ${{ github.event.schedule == '52 6 * * *' && '100' || '60' }}
           WORLD_TELEGRAM_NETWORK_CRAWL: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
-          WORLD_TELEGRAM_NETWORK_DIALOGS: "40"
-          WORLD_TELEGRAM_NETWORK_MESSAGES: "80"
+          WORLD_TELEGRAM_NETWORK_DIALOGS: "50"
+          WORLD_TELEGRAM_NETWORK_MESSAGES: "90"
           WORLD_TELEGRAM_NETWORK_DAYS: "14"
           NC_STITCH_GAP_HOURS: "6"
           NC_OPEN_WEB_ENABLED: "1"
           NC_OPEN_WEB_MODE: ${{ github.event.schedule == '52 6 * * *' && 'full' || 'pulse' }}
           NC_REDDIT_RSS_FEED_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '8' || '4' }}
-          NC_BING_RSS_QUERY_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '12' || '5' }}
-          NC_DYNAMIC_COMMUNITY_LIMIT: "24"
+          NC_BING_RSS_QUERY_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '18' || '6' }}
+          NC_DYNAMIC_COMMUNITY_LIMIT: "30"
           NC_CATCHER_FORUM: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
