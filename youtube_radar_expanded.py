@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 import youtube_radar as yr
+import youtube_comment_expansion  # patches replies, watchlist ranking and full dedupe
 
 CORE = [
     "North Cyprus property",
@@ -34,6 +35,8 @@ EXTRA = [
     "Північний Кіпр купити квартиру",
     "شمال قبرص عقارات",
     "شمال قبرص شراء شقة",
+    "قبرس شمالی خرید ملک",
+    "قبرس شمالی خرید آپارتمان",
     "צפון קפריסין נדלן",
     "Caesar Resort North Cyprus resale",
     "Grand Sapphire North Cyprus resale",
@@ -69,7 +72,7 @@ def _rotate(values, count):
 original=_uniq(list(yr.DISCOVERY_QUERIES) + EXTRA)
 core_keys={x.casefold() for x in CORE}
 rotating=[x for x in original if x.casefold() not in core_keys]
-yr.DISCOVERY_QUERIES=_uniq(CORE + _rotate(rotating, 30))
+yr.DISCOVERY_QUERIES=_uniq(CORE + _rotate(rotating, 32))
 
 if __name__ == "__main__":
     yr.run()
