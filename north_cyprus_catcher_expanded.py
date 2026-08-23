@@ -8,6 +8,7 @@ import north_cyprus_spam_guard
 import north_cyprus_reply_context  # patches base classifier for terse replies under property posts
 import telegram_global_search as tgs
 
+from north_cyprus_author_reputation import annotate_author_reputation
 from north_cyprus_open_web_plus import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from north_cyprus_source_performance import observe as observe_source
 from north_cyprus_query_performance import observe as observe_query, ranked_queries
@@ -76,7 +77,12 @@ _original_classify=base._classify  # includes reply-context patch above
 
 
 def _classify_and_learn(item, cutoff):
-    lead, reason = _original_classify(item, cutoff)
+    # Buyer-shaped messages from a person with strong seller/agent history are
+    # usually sourcing inventory for a client, not the end buyer we want.
+    if item.get("suspected_agent"):
+        lead, reason = None, "agent_history"
+    else:
+        lead, reason = _original_classify(item, cutoff)
     observe_source(item, lead, reason)
     observe_query(item, lead, reason)
     return lead, reason
@@ -105,8 +111,10 @@ def expanded_collect_global():
             key=item.get("url") or base.main.dedupe_key(item)
             unique[key]=item
 
-    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"unique",len(unique))
-    return list(unique.values())
+    collected=list(unique.values())
+    annotate_author_reputation(collected)
+    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"unique",len(collected))
+    return collected
 
 
 base.collect_global_telegram=expanded_collect_global
