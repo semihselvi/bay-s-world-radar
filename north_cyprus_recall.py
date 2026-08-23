@@ -52,7 +52,7 @@ EXTRA_REQUEST_PATTERNS = [
     r"\bнужна квартир", r"\bнужен апартамент", r"\bнужна вилл", r"\bкто продает\b",
     r"\bот собственника\b", r"\bищу вторичк", r"\bесть варианты\b",
     r"\bкакие варианты\b", r"\bчто есть до\b", r"\bчто есть за\b",
-    r"\bisatis .*есть\b", r"\belysium\s*2 .*есть\b",
+    r"\bisatis .*есть\b", r"\belysium\s*2 .*есть\b", r"\bклиент\s+ищет\b",
     # Arabic buyer intent
     r"أريد شراء", r"ابحث عن شقة", r"أبحث عن شقة", r"ابحث عن عقار", r"أبحث عن عقار",
     r"أبحث عن فيلا", r"اريد شقة", r"أريد شقة", r"ميزانيتي",
@@ -63,12 +63,51 @@ EXTRA_STRONG_PATTERNS = [
     r"\byat[ıi]r[ıi]ml[ıi]k bak[ıi]yorum\b", r"\byatirimlik bakiyorum\b",
     r"\bproperty hunting\b", r"\bready to purchase\b", r"\bwant a resale\b",
     r"\bхотел бы купить\b", r"\bхотела бы купить\b", r"\bхотим приобрести\b",
+    r"\bкуплю\s+(?:квартир\w*|апартамент\w*|дом\w*|вилл\w*|студи\w*|недвижимост\w*)\b",
+    r"\bищу\s+на\s+покупку\b", r"\bищу\s+.*\b(?:купить|для\s+покупки)\b",
 ]
 
 EXTRA_CONCRETE_PATTERNS = [
     r"\b\d{2,3}\s*(?:bin|thousand)\s*(?:sterlin|pound|gbp)?\b",
     r"\b(?:gbp|sterlin|pounds?)\s*\d", r"\b\d[\d,. ]*\s*(?:gbp|sterlin|pounds?)\b",
     r"\b\d{2,3}k\s*(?:gbp|pounds?|sterlin)?\b",
+]
+
+# Explicit purchase verbs should outrank generic investment/service vocabulary.
+# These are end-buyer shaped expressions; property context is still required by
+# recall_buyer_scores before the HOT override is applied.
+DIRECT_PURCHASE_PATTERNS = [
+    r"\bкуплю\b",
+    r"\bхочу\s+купить\b",
+    r"\bхотим\s+купить\b",
+    r"\bищу\s+на\s+покупку\b",
+    r"\bищу\s+.*\b(?:купить|для\s+покупки)\b",
+    r"\blooking\s+to\s+buy\b",
+    r"\bwant(?:ing)?\s+to\s+buy\b",
+    r"\bready\s+to\s+(?:buy|purchase)\b",
+    r"\bsat[ıi]n\s+almak\s+istiyorum\b",
+    r"\b(?:ev|daire|villa)\s+almak\s+istiyorum\b",
+    r"\bje\s+veux\s+acheter\b",
+    r"\bich\s+m[öo]chte\s+.*\s+kaufen\b",
+    r"\bik\s+wil\s+.*\s+kopen\b",
+    r"أريد\s+شراء",
+    r"می.?خواهم\s+.*\s+بخرم",
+]
+
+OWNER_DIRECT_PATTERNS = [
+    r"\bтолько\s+от\s+собственника\b",
+    r"\bот\s+собственника\b",
+    r"\bбез\s+агент(?:ов|ств)?\b",
+    r"\bsahibinden\b",
+    r"\bowner\s+direct\b",
+    r"\bprivate\s+owner\b",
+    r"\bno\s+agents?\b",
+]
+
+CLIENT_DEMAND_PATTERNS = [
+    r"\bклиент\s+ищет\b",
+    r"\bclient\s+(?:is\s+)?looking\s+for\b",
+    r"\bm[üu][şs]teri\s+ar[ıi]yor\b",
 ]
 
 nf.NC_LOCATION_PATTERNS.extend(PROJECT_CONTEXT_PATTERNS)
@@ -121,17 +160,40 @@ def recall_keep_candidate(item, cutoff):
 
 def recall_buyer_scores(item):
     intent, credibility, fit, label = _base_score(item)
-    if label in ("HOT", "WARM"):
-        return intent, credibility, fit, label
-
     text = nf._text(item)
     if not nf._nc_context(item, text):
         return intent, credibility, fit, label
 
+    property_signal = nf._matches(text, nf.PROPERTY_PATTERNS) or nf._matches(text, PROJECT_CONTEXT_PATTERNS)
+    direct_purchase = nf._matches(text, DIRECT_PURCHASE_PATTERNS)
+    owner_direct = nf._matches(text, OWNER_DIRECT_PATTERNS)
+    client_demand = nf._matches(text, CLIENT_DEMAND_PATTERNS)
     request = nf._matches(text, nf.REQUEST_BUYER_PATTERNS)
     strong = nf._matches(text, nf.STRONG_BUYER_PATTERNS)
     early = nf._matches(text, nf.EARLY_BUYER_PATTERNS)
     concrete = nf._matches(text, nf.CONCRETE_PATTERNS)
+
+    # A literal purchase declaration + a property object is the strongest signal
+    # we can get from a public message. Owner-direct/no-agent wording increases it
+    # further. This fixes cases where generic scoring left "Куплю..." as WARM.
+    if direct_purchase and property_signal:
+        direct_intent = 97 if owner_direct else 93
+        return max(intent, direct_intent), max(credibility, 74), max(fit, 94), "HOT"
+
+    # "Ищу виллу / квартиру" without an explicit purchase verb is still strong.
+    # With price/owner/payment/transaction detail, promote it to HOT; otherwise it
+    # remains a high WARM rather than being lost.
+    if strong and property_signal and (concrete or owner_direct):
+        return max(intent, 90), max(credibility, 72), max(fit, 93), "HOT"
+
+    # Broker/referral demand can be commercially useful, but is not equivalent to
+    # a first-person end buyer. Keep it high WARM; author reputation can reject a
+    # proven agent persona in the Buyer Catcher.
+    if client_demand and property_signal:
+        return max(intent, 86), max(credibility, 68), max(fit, 92), "WARM"
+
+    if label in ("HOT", "WARM"):
+        return intent, credibility, fit, label
 
     if concrete and (request or strong or early):
         # Surface it to Telegram rather than silently discarding it.
