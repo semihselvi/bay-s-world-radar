@@ -35,7 +35,7 @@ jobs:
           WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
           WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT: "35"
           WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES: "90"
-          WORLD_TELEGRAM_KNOWN_GROUP_LIMIT: "17"
+          WORLD_TELEGRAM_KNOWN_GROUP_LIMIT: "20"
           WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES: ${{ github.event.schedule == '52 6 * * *' && '120' || '70' }}
           WORLD_TELEGRAM_DEEP_MAX_DIALOGS: ${{ github.event.schedule == '52 6 * * *' && '32' || '24' }}
           WORLD_TELEGRAM_DEEP_QUERY_LIMIT: "8"
