@@ -5,7 +5,7 @@ import north_cyprus_focus as nf
 import north_cyprus_spam_guard
 import telegram_global_search as tgs
 
-from north_cyprus_open_web import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
+from north_cyprus_open_web_plus import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from telegram_channel_comments import collect_channel_comments
 from telegram_known_public_groups import collect_known_public_groups
 from telegram_member_deep_search import collect_member_deep_search
@@ -21,26 +21,29 @@ CORE_GLOBAL_QUERIES = [
 
 EXTRA_GLOBAL_QUERIES = [
     "North Cyprus apartment", "Northern Cyprus property", "North Cyprus looking for apartment",
-    "North Cyprus want to buy", "North Cyprus resale", "North Cyprus price", "Long Beach 1+1",
-    "Long Beach 2+1", "Long Beach resale", "İskele arıyorum", "İskele sahibinden", "İskele fiyat",
+    "North Cyprus want to buy", "North Cyprus resale", "North Cyprus price", "North Cyprus owner direct",
+    "North Cyprus private owner", "Long Beach 1+1", "Long Beach 2+1", "Long Beach resale",
+    "İskele arıyorum", "İskele sahibinden", "İskele fiyat", "İskele villa arıyorum",
     "Girne daire", "Girne arıyorum", "Girne sahibinden", "Esentepe villa", "Esentepe arıyorum",
     "Kuzey Kıbrıs ev", "Kuzey Kıbrıs arıyorum", "Kuzey Kıbrıs satın almak", "Kuzey Kıbrıs sahibinden",
-    "Kuzey Kıbrıs peşinat", "Kuzey Kıbrıs taksit", "Северный Кипр ищу", "Северный Кипр хочу купить",
-    "Северный Кипр нужна квартира", "Северный Кипр цена", "Северный Кипр рассрочка",
-    "Северный Кипр вторичка", "Северный Кипр от собственника", "Caesar Resort", "Caesar Resort resale",
-    "Grand Sapphire", "Grand Sapphire resale", "Isatis", "Isatis resale", "Elysium", "Elysium 2", "Fiora",
-    "Isatis Orchard", "Royal Sun", "Royal Sun resale", "Riverside Life", "K'Saba İskele",
-    "Nordzypern Wohnung kaufen", "Nordzypern Immobilie kaufen", "Chypre du Nord acheter appartement",
-    "Noord Cyprus woning kopen", "Cypr Północny szukam mieszkania", "Cypr Północny chcę kupić",
-    "Північний Кіпр шукаю квартиру", "Північний Кіпр хочу купити", "شمال قبرص أبحث عن شقة",
-    "شمال قبرص أريد شراء عقار", "צפון קפריסין דירה לקנות",
+    "Kuzey Kıbrıs peşinat", "Kuzey Kıbrıs taksit", "Северный Кипр ищу", "Северный Кипр срочно ищу",
+    "Северный Кипр ищу на покупку", "Северный Кипр хочу купить", "Северный Кипр нужна квартира",
+    "Северный Кипр ищу виллу", "Северный Кипр только от собственника", "Северный Кипр цена",
+    "Северный Кипр рассрочка", "Северный Кипр вторичка", "Северный Кипр от собственника",
+    "Искеле ищу виллу", "Боаз ищу виллу", "Отюкен ищу виллу", "Йени Боазичи ищу виллу",
+    "Caesar Resort", "Caesar Resort resale", "Grand Sapphire", "Grand Sapphire resale", "Isatis", "Isatis resale",
+    "Elysium", "Elysium 2", "Fiora", "Isatis Orchard", "Royal Sun", "Royal Sun resale", "Riverside Life", "K'Saba İskele",
+    "Nordzypern Wohnung kaufen", "Nordzypern Immobilie kaufen", "Nordzypern Haus kaufen",
+    "Chypre du Nord acheter appartement", "Noord Cyprus woning kopen", "Cypr Północny szukam mieszkania",
+    "Cypr Północny chcę kupić", "Північний Кіпр шукаю квартиру", "Північний Кіпр хочу купити",
+    "شمال قبرص أبحث عن شقة", "شمال قبرص أريد شراء عقار", "צפון קפריסין דירה לקנות",
 ]
 
 PUBLIC_GROUP_DISCOVERY_QUERIES = [
     "North Cyprus", "Northern Cyprus", "North Cyprus property", "North Cyprus expats", "Kuzey Kıbrıs",
     "Kuzey Kıbrıs emlak", "Kuzey Kıbrıs gayrimenkul", "Северный Кипр", "Северный Кипр недвижимость",
-    "Северный Кипр чат", "İskele", "Long Beach Cyprus", "Girne", "Esentepe", "Famagusta Cyprus",
-    "Caesar Resort Cyprus", "Grand Sapphire Cyprus", "Isatis Cyprus",
+    "Северный Кипр чат", "Искеле недвижимость", "İskele", "Long Beach Cyprus", "Girne", "Esentepe",
+    "Famagusta Cyprus", "Caesar Resort Cyprus", "Grand Sapphire Cyprus", "Isatis Cyprus",
 ]
 
 
