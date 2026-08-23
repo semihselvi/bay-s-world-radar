@@ -24,13 +24,13 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py north_cyprus_web_recovery.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py north_cyprus_web_recovery.py
       - name: Run 90-day indexed-web recovery
         env:
           NC_WEB_RECOVERY_DAYS: "90"
           NC_OPEN_WEB_ENABLED: "1"
           NC_OPEN_WEB_MODE: "full"
-          NC_REDDIT_RSS_FEED_LIMIT: "16"
+          NC_REDDIT_RSS_FEED_LIMIT: "24"
           NC_BING_RSS_QUERY_LIMIT: "20"
           NC_DYNAMIC_COMMUNITY_LIMIT: "40"
           WORLD_TELEGRAM_NETWORK_CRAWL: "0"
