@@ -7,6 +7,7 @@ import telegram_global_search as tgs
 
 from north_cyprus_open_web import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from telegram_channel_comments import collect_channel_comments
+from telegram_known_public_groups import collect_known_public_groups
 from telegram_member_deep_search import collect_member_deep_search
 
 for _domain in OPEN_WEB_ALLOWED_DOMAINS:
@@ -78,6 +79,8 @@ def expanded_collect_global():
     buckets = []
     normal_global = _original_collect_global()
     buckets.append(("telegram_global_public", normal_global))
+    known_groups = collect_known_public_groups()
+    buckets.append(("telegram_verified_groups", known_groups))
     deep_member = collect_member_deep_search()
     buckets.append(("telegram_joined_deep", deep_member))
     channel_comments = collect_channel_comments()
