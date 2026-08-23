@@ -8,6 +8,17 @@ import main
 import hybrid_engine
 from source_registry import DISCOVERY_CATALOGS
 
+# Additional live directories found during source research. These pages contain
+# public t.me links and can grow the source universe without Exa/API cost.
+EXTRA_DISCOVERY_CATALOGS = [
+    {"name":"Emigrants 360 Cyprus", "url":"https://t.me/s/slavianskiy_forum", "market":"north_cyprus"},
+    {"name":"NewCY Cyprus Chat Directory", "url":"https://new.cy/tg/1481055633/382446", "market":"north_cyprus"},
+    {"name":"KiprInfo Cyprus Chat Mirror", "url":"https://kiprinfo.ru/tg/1481055633", "market":"north_cyprus"},
+]
+for _catalog in EXTRA_DISCOVERY_CATALOGS:
+    if not any(x.get("name") == _catalog["name"] for x in DISCOVERY_CATALOGS):
+        DISCOVERY_CATALOGS.append(_catalog)
+
 DIRECT_LINK_LIMIT = int(os.getenv("WORLD_DIRECT_LINK_LIMIT", "16"))
 CATALOG_CHANNEL_LIMIT = int(os.getenv("WORLD_CATALOG_CHANNEL_LIMIT", "10"))
 
