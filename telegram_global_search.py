@@ -5,12 +5,13 @@ from datetime import datetime, timedelta, timezone
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
 from telethon.sessions import StringSession
+from telethon.tl.functions.contacts import SearchRequest as SearchContactsRequest
 from telethon.tl.types import Channel, Chat, User
 
 
-# Public Telegram global-search queries. This is deliberately market-led rather
-# than buyer-phrase-led: we search where North Cyprus conversations happen, then
-# let the buyer-intent classifier decide whether the message is commercially useful.
+# Message-search queries. Global search is a second retrieval path over the
+# account's searchable Telegram universe and is not limited to simply reading
+# the newest N messages from every dialog.
 GLOBAL_QUERIES = [
     "North Cyprus property",
     "North Cyprus apartment",
@@ -34,6 +35,20 @@ GLOBAL_QUERIES = [
     "K'Saba İskele",
 ]
 
+# Once a day we also ask Telegram's public chat search for North-Cyprus-related
+# groups. We do not auto-join anything. Public megagroups returned by Telegram
+# are read directly when access is available.
+PUBLIC_GROUP_DISCOVERY_QUERIES = [
+    "North Cyprus",
+    "Northern Cyprus",
+    "Kuzey Kıbrıs",
+    "Северный Кипр",
+    "İskele",
+    "Long Beach Cyprus",
+    "Girne",
+    "Esentepe",
+]
+
 
 def _chat_link(entity, message_id):
     username = getattr(entity, "username", None)
@@ -54,6 +69,54 @@ def _sender_name(sender):
     return " ".join(x for x in (first, last) if x).strip()
 
 
+def _discussion_group(chat):
+    if isinstance(chat, User) or not isinstance(chat, (Channel, Chat)):
+        return False
+    if isinstance(chat, Channel):
+        # Keep supergroups; skip one-way broadcast channels.
+        if getattr(chat, "broadcast", False) and not getattr(chat, "megagroup", False):
+            return False
+    return True
+
+
+async def _message_item(msg, chat, source, source_bucket, query=""):
+    if not msg or not getattr(msg, "message", None) or not _discussion_group(chat):
+        return None
+
+    sender = None
+    try:
+        sender = await msg.get_sender()
+    except Exception:
+        pass
+
+    # Reachable human discussions only. Skip bots and anonymous/channel posts.
+    if not isinstance(sender, User) or getattr(sender, "bot", False):
+        return None
+
+    dt = getattr(msg, "date", None)
+    if dt and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    if not dt:
+        return None
+
+    text = str(msg.message).strip()
+    if not text:
+        return None
+
+    title = getattr(chat, "title", "") or "Telegram public group"
+    return {
+        "source": source,
+        "url": _chat_link(chat, msg.id),
+        "title": f"{source} | {title}",
+        "text": text,
+        "published": dt.astimezone(timezone.utc).isoformat(),
+        "author": _sender_name(sender),
+        "source_bucket": source_bucket,
+        "telegram_chat": title,
+        "telegram_query": query,
+    }
+
+
 async def _collect_global():
     api_id = os.getenv("TELEGRAM_API_ID", "").strip()
     api_hash = os.getenv("TELEGRAM_API_HASH", "").strip()
@@ -67,6 +130,10 @@ async def _collect_global():
     result_limit = max(5, min(60, int(os.getenv("WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY", "30"))))
     cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
+    discover_public = os.getenv("WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS", "0").strip() == "1"
+    public_group_limit = max(5, min(40, int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT", "28"))))
+    public_message_limit = max(20, min(150, int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES", "70"))))
+
     client = TelegramClient(StringSession(session), int(api_id), api_hash)
     await client.connect()
     if not await client.is_user_authorized():
@@ -76,13 +143,14 @@ async def _collect_global():
 
     items = {}
     query_counts = {}
+    discovered_groups = {}
     try:
+        # 1) Server-side global message search. This can recover matching messages
+        # in busy chats even when they are no longer within the latest per-chat slice.
         for idx, query in enumerate(GLOBAL_QUERIES[:query_limit], 1):
             kept = 0
             seen_for_query = 0
             try:
-                # entity=None + search=... uses Telegram's global message search.
-                # This expands coverage beyond only the groups/channels already joined.
                 async for msg in client.iter_messages(None, search=query, limit=result_limit):
                     if not msg or not getattr(msg, "message", None):
                         continue
@@ -99,42 +167,16 @@ async def _collect_global():
                         chat = await msg.get_chat()
                     except Exception:
                         pass
-                    if isinstance(chat, User) or not isinstance(chat, (Channel, Chat)):
+                    item = await _message_item(
+                        msg,
+                        chat,
+                        "Telegram Global Search",
+                        "telegram_global_search",
+                        query,
+                    )
+                    if not item:
                         continue
-
-                    # Broadcast channels are overwhelmingly seller/brand posts. Genuine
-                    # buyer questions are far more likely in groups/supergroups.
-                    if isinstance(chat, Channel) and getattr(chat, "broadcast", False) and not getattr(chat, "megagroup", False):
-                        continue
-
-                    sender = None
-                    try:
-                        sender = await msg.get_sender()
-                    except Exception:
-                        pass
-                    # Skip bots and anonymous/channel senders. The goal is a reachable
-                    # human buyer, not another advertising feed.
-                    if not isinstance(sender, User) or getattr(sender, "bot", False):
-                        continue
-
-                    text = str(msg.message).strip()
-                    if not text:
-                        continue
-
-                    title = getattr(chat, "title", "") or "Telegram public group"
-                    url = _chat_link(chat, msg.id)
-                    item = {
-                        "source": "Telegram Global Search",
-                        "url": url,
-                        "title": f"Telegram Global | {title}",
-                        "text": text,
-                        "published": dt.astimezone(timezone.utc).isoformat(),
-                        "author": _sender_name(sender),
-                        "source_bucket": "telegram_global_search",
-                        "telegram_chat": title,
-                        "telegram_query": query,
-                    }
-                    items[url] = item
+                    items[item["url"]] = item
                     kept += 1
             except FloodWaitError as exc:
                 print(f"TELEGRAM_GLOBAL_FLOOD_WAIT query={query!r} seconds={exc.seconds}")
@@ -144,12 +186,72 @@ async def _collect_global():
 
             query_counts[query] = kept
             print(f"TELEGRAM_GLOBAL_QUERY [{idx}/{query_limit}] query={query!r} seen={seen_for_query} kept={kept}")
+
+        # 2) Public group discovery. Telegram can return public chats matching a
+        # market phrase. We read public megagroups directly when possible and never
+        # join them automatically.
+        if discover_public:
+            for query in PUBLIC_GROUP_DISCOVERY_QUERIES:
+                try:
+                    result = await client(SearchContactsRequest(q=query, limit=20))
+                    for chat in getattr(result, "chats", []) or []:
+                        if not isinstance(chat, Channel):
+                            continue
+                        if not getattr(chat, "megagroup", False):
+                            continue
+                        username = str(getattr(chat, "username", "") or "").strip()
+                        if not username:
+                            continue
+                        discovered_groups[str(chat.id)] = chat
+                        if len(discovered_groups) >= public_group_limit:
+                            break
+                    print(f"TELEGRAM_PUBLIC_GROUP_DISCOVERY query={query!r} total_groups={len(discovered_groups)}")
+                    if len(discovered_groups) >= public_group_limit:
+                        break
+                except FloodWaitError as exc:
+                    print(f"TELEGRAM_PUBLIC_DISCOVERY_FLOOD_WAIT query={query!r} seconds={exc.seconds}")
+                    break
+                except Exception as exc:
+                    print(f"TELEGRAM_PUBLIC_DISCOVERY_ERROR query={query!r} {exc}")
+
+            for idx, chat in enumerate(discovered_groups.values(), 1):
+                recent = 0
+                try:
+                    async for msg in client.iter_messages(chat, limit=public_message_limit):
+                        dt = getattr(msg, "date", None)
+                        if dt and dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        if dt and dt < cutoff:
+                            break
+                        item = await _message_item(
+                            msg,
+                            chat,
+                            "Telegram Public Discovery",
+                            "telegram_public_discovery",
+                            "public_group_discovery",
+                        )
+                        if not item:
+                            continue
+                        items[item["url"]] = item
+                        recent += 1
+                    print(
+                        f"TELEGRAM_PUBLIC_GROUP_SCAN [{idx}/{len(discovered_groups)}] "
+                        f"chat={getattr(chat,'title','')!r} recent_human_messages={recent}"
+                    )
+                except FloodWaitError as exc:
+                    print(f"TELEGRAM_PUBLIC_GROUP_FLOOD_WAIT chat={getattr(chat,'title','')!r} seconds={exc.seconds}")
+                    break
+                except Exception as exc:
+                    print(f"TELEGRAM_PUBLIC_GROUP_SCAN_ERROR chat={getattr(chat,'title','')!r} {exc}")
     finally:
         await client.disconnect()
 
     out = list(items.values())
     out.sort(key=lambda x: x.get("published", ""), reverse=True)
-    print(f"TELEGRAM_GLOBAL_COUNTS queries={len(query_counts)} unique_messages={len(out)}")
+    print(
+        f"TELEGRAM_GLOBAL_COUNTS queries={len(query_counts)} "
+        f"discovered_public_groups={len(discovered_groups)} unique_messages={len(out)}"
+    )
     return out
 
 
