@@ -10,9 +10,13 @@ from telethon.tl.types import Channel, User
 
 from telegram_message_context import reply_context
 
+# Property/relocation channels are valuable even when their own posts are ads:
+# real buyers often reveal themselves in the linked discussion comments.
 NC_PARENT_CHANNELS = [
     "velesproperty", "btinvestnorthcyprus", "simoncyprus", "leverageinvestmentsofficial",
     "flatty_cyprus", "cyprusposter", "nedvizhimost_kipr",
+    "kibrishome", "vitriolkipr", "North_Cyprus", "northcyprus_real_estate",
+    "kipr_nedvizhimost", "kipr360realestate",
 ]
 
 
@@ -41,7 +45,7 @@ async def _collect():
     if not api_id or not api_hash or not session:
         print("TELEGRAM_COMMENTS_DISABLED missing TELEGRAM_API_ID/API_HASH/STRING_SESSION"); return []
     lookback_hours = int(os.getenv("WORLD_LOOKBACK_HOURS", "8")); cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-    channel_limit = max(1, min(30, int(os.getenv("WORLD_TELEGRAM_COMMENT_CHANNEL_LIMIT", "14"))))
+    channel_limit = max(1, min(30, int(os.getenv("WORLD_TELEGRAM_COMMENT_CHANNEL_LIMIT", "20"))))
     message_limit = max(20, min(180, int(os.getenv("WORLD_TELEGRAM_COMMENT_MESSAGES", "80"))))
     channels=[]
     for username in NC_PARENT_CHANNELS + _extra_channels():
