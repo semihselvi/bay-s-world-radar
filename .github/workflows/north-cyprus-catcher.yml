@@ -3,8 +3,8 @@ name: BAY-S North Cyprus Buyer Catcher
 on:
   workflow_dispatch:
   schedule:
-    # Turkey time UTC+3. Free Telegram global search, staggered from other radar lanes.
-    - cron: "52 6 * * *"             # 09:52 Turkey: 24h catch-up + forum replies
+    # Turkey time UTC+3. Free Telegram search, staggered from other radar lanes.
+    - cron: "52 6 * * *"             # 09:52 Turkey: 24h catch-up + forum + public group discovery
     - cron: "52 9,12,15,18 * * *"    # 12:52/15:52/18:52/21:52 Turkey: fresh pulses
 
 concurrency:
@@ -36,6 +36,9 @@ jobs:
           WORLD_LOOKBACK_HOURS: ${{ github.event_name == 'workflow_dispatch' && '24' || (github.event.schedule == '52 6 * * *' && '24' || '4') }}
           WORLD_TELEGRAM_GLOBAL_QUERY_LIMIT: "16"
           WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY: "25"
+          WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
+          WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT: "28"
+          WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES: "70"
           NC_CATCHER_FORUM: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
