@@ -7,6 +7,7 @@ import main
 import north_cyprus_catcher as base
 import north_cyprus_catcher_expanded  # patches base.collect_global_telegram with expanded sources
 from north_cyprus_conversation import stitch_conversations
+from north_cyprus_notification_dedupe import content_fingerprint
 
 RECOVERY_NOTIFIED = "bay_s_nc_recovery_notified"
 RECOVERY_SCANS = "bay_s_nc_recovery_scans"
@@ -16,15 +17,26 @@ def _doc_key(lead):
     return hashlib.sha1((lead.get("url") or main.dedupe_key(lead)).encode("utf-8")).hexdigest()
 
 
+def _recovery_keys(lead):
+    keys = [_doc_key(lead)]
+    fp = content_fingerprint(lead)
+    if fp:
+        keys.append(f"content_{fp}")
+    return keys
+
+
 def _already_seen(db, lead):
     if not db:
         return False
-    key = _doc_key(lead)
     try:
-        # Do not resend something the live Catcher already surfaced.
-        if db.collection(base.NOTIFIED_COLLECTION).document(key).get().exists:
+        # Live Catcher dedupe is content-aware after expanded patches load. Do not
+        # resurrect an identical repost merely because Telegram changed the URL.
+        if base._notified_before(db, lead):
             return True
-        return db.collection(RECOVERY_NOTIFIED).document(key).get().exists
+        for key in _recovery_keys(lead):
+            if db.collection(RECOVERY_NOTIFIED).document(key).get().exists:
+                return True
+        return False
     except Exception as exc:
         print("NC_RECOVERY_DEDUPE_ERROR", exc)
         return False
@@ -34,13 +46,15 @@ def _mark(db, lead, days):
     if not db:
         return
     try:
-        db.collection(RECOVERY_NOTIFIED).document(_doc_key(lead)).set({
+        payload = {
             "url": lead.get("url", ""),
             "author": lead.get("author", ""),
             "classification": lead.get("classification", ""),
             "recovery_days": days,
             "notified_at": main.now_utc().isoformat(),
-        }, merge=True)
+        }
+        for key in _recovery_keys(lead):
+            db.collection(RECOVERY_NOTIFIED).document(key).set(payload, merge=True)
     except Exception as exc:
         print("NC_RECOVERY_MARK_ERROR", exc)
 
