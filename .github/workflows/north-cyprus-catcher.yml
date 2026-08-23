@@ -25,7 +25,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py
       - name: Run expanded North Cyprus catcher
         timeout-minutes: 25
         env:
@@ -51,6 +51,7 @@ jobs:
           NC_SOURCE_LEARNING: "1"
           NC_QUERY_LEARNING: "1"
           NC_AUTHOR_REPUTATION: "1"
+          NC_SAME_TEXT_DEDUPE_HOURS: "168"
           NC_OPEN_WEB_ENABLED: "1"
           NC_OPEN_WEB_MODE: ${{ github.event.schedule == '52 6 * * *' && 'full' || 'pulse' }}
           NC_REDDIT_RSS_FEED_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '14' || '6' }}
