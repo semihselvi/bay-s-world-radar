@@ -150,6 +150,13 @@ def _score_maps():
     return username_scores, title_scores
 
 
+def _rotate(values):
+    if not values:
+        return []
+    now=datetime.now(timezone.utc); slot=now.timetuple().tm_yday*8+now.hour//3; shift=slot%len(values)
+    return values[shift:]+values[:shift]
+
+
 def ranked_usernames(usernames):
     names=[]; seen=set()
     for value in usernames:
@@ -158,10 +165,13 @@ def ranked_usernames(usernames):
         seen.add(name.lower()); names.append(name)
     if len(names)<=1: return names
     username_scores,_=_score_maps()
+    positive=[x for x in names if username_scores.get(x.lower(),0.0)>0]
+    if not positive:
+        ranked=_rotate(names)
+        print("NC_SOURCE_PRIORITY cold_start="+",".join(f"@{x}" for x in ranked[:10]))
+        return ranked
     productive=sorted(names,key=lambda x:(username_scores.get(x.lower(),0.0),x.lower()),reverse=True)
-    keep=max(1,int(len(names)*0.75)); top=productive[:keep]; rest=[x for x in names if x not in top]
-    if rest:
-        now=datetime.now(timezone.utc); slot=now.timetuple().tm_yday*8+now.hour//3; shift=slot%len(rest); rest=rest[shift:]+rest[:shift]
+    keep=max(1,int(len(names)*0.75)); top=productive[:keep]; rest=_rotate([x for x in names if x not in top])
     ranked=top+rest
     print("NC_SOURCE_PRIORITY top="+",".join(f"@{x}:{username_scores.get(x.lower(),0):.1f}" for x in ranked[:10]))
     return ranked
@@ -176,10 +186,12 @@ def ranked_dialogs(entries):
         by_user=username_scores.get(username,-1.0) if username else -1.0
         by_title=title_scores.get(_norm(title),-1.0)
         return max(by_user,by_title,0.0)
+    if not any(score(x)>0 for x in entries):
+        ranked=_rotate(entries)
+        print("NC_DIALOG_PRIORITY cold_start="+",".join(x[1][:35] for x in ranked[:8]))
+        return ranked
     productive=sorted(entries,key=lambda x:(score(x),_norm(x[1])),reverse=True)
-    keep=max(1,int(len(entries)*0.75)); top=productive[:keep]; rest=[x for x in entries if x not in top]
-    if rest:
-        now=datetime.now(timezone.utc); slot=now.timetuple().tm_yday*8+now.hour//3; shift=slot%len(rest); rest=rest[shift:]+rest[:shift]
+    keep=max(1,int(len(entries)*0.75)); top=productive[:keep]; rest=_rotate([x for x in entries if x not in top])
     ranked=top+rest
     print("NC_DIALOG_PRIORITY top="+",".join(f"{x[1][:35]}:{score(x):.1f}" for x in ranked[:8]))
     return ranked
