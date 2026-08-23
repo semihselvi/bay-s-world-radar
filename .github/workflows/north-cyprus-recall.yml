@@ -28,7 +28,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py
+          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_early_stage_expansion.py north_cyprus_farsi_expansion.py north_cyprus_source_performance.py telegram_known_public_groups.py north_cyprus_hunter.py north_cyprus_hunter_expansion.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py
 
       - name: Run free high-recall North Cyprus scan
         timeout-minutes: 18
