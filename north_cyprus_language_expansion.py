@@ -17,12 +17,16 @@ _extend(nf.NC_LOCATION_PATTERNS, [
     r"\bnorra cypern\b",
     r"\bnord[- ]kypros\b",
     r"\bnordcypern\b",
-    r"\bcipro nord\b",
+    r"\bcipro(?: del)? nord\b",
     r"\bchipre del norte\b",
     r"\bchipre do norte\b",
     r"\bsevern[íi] kypr\b",
+    r"\bp[õo]hja[- ]k[üu]pros\b",
     r"شمال قبرص",
+    r"قبرص الشمالية",
+    r"قبرص الشماليه",
     r"צפון קפריסין",
+    r"קפריסין הצפונית",
     r"\bсолтүстік кипр\b",
 ])
 
@@ -31,11 +35,12 @@ _extend(nf.PROPERTY_PATTERNS, [
     r"\bmieszkan", r"\bdom\b", r"\bnieruchomo", r"\bwilla\b",
     r"\bквартир", r"\bбудинок\b", r"\bвілл", r"\bнерухом",
     r"\bbostad\b", r"\bl[äa]genhet\b", r"\bfastighet\b",
-    r"\bbolig\b", r"\bleilighet\b",
+    r"\bbolig\b", r"\bleilighet\b", r"\blejlighed\b",
     r"\bcasa\b", r"\bappartament", r"\bimmobile\b",
     r"\bpiso\b", r"\binmueble\b",
-    r"\bapartamento\b", r"\bim[óo]vel\b",
+    r"\bapartamento\b", r"\bim[óo]vel\b", r"\bmoradia\b",
     r"\bbyt\b", r"\bd[ůu]m\b", r"\bnemovitost",
+    r"\bkorter\b", r"\bmaja\b", r"\bkinnisvara\b",
     r"شقة", r"عقار", r"فيلا", r"منزل",
     r"דירה", r"בית", r"וילה", r"נכס",
     r"\bпәтер\b", r"\bүй\b",
@@ -70,10 +75,12 @@ _extend(nf.STRONG_BUYER_PATTERNS, [
     r"\bcomprar (?:casa|apartamento|moradia|imóvel)\b",
     # Czech
     r"\bchci koupit\b", r"\bhled[áa]m (?:byt|dům|vilu|nemovitost)\b",
+    # Estonian
+    r"\bsoovin osta\b", r"\btahan osta\b", r"\botsin (?:korterit|maja|villat|kinnisvara)\b",
     # Arabic
-    r"أريد شراء", r"أبحث عن (?:شقة|عقار|فيلا|منزل)", r"أرغب في شراء",
+    r"أريد شراء", r"اريد شراء", r"أبحث عن (?:شقة|عقار|فيلا|منزل)", r"ابحث عن (?:شقة|عقار|فيلا|منزل)", r"أرغب في شراء",
     # Hebrew
-    r"רוצה לקנות", r"מחפש(?:ת)? (?:דירה|בית|וילה|נכס)",
+    r"רוצה לקנות", r"מעוניין(?:ת)? לקנות", r"מחפש(?:ת)? (?:דירה|בית|וילה|נכס)",
     # Kazakh
     r"сатып алғым келеді", r"пәтер іздеймін", r"үй іздеймін",
 ])
@@ -87,6 +94,7 @@ _extend(nf.REQUEST_BUYER_PATTERNS, [
     r"\bquanto costa", r"\bprezzo.*(?:casa|appartamento|villa)",
     r"\bcu[áa]nto cuesta", r"\bprecio.*(?:piso|casa|apartamento|villa)",
     r"\bquanto custa", r"\bpre[çc]o.*(?:casa|apartamento|moradia)",
+    r"\bmis maksab", r"\bhind.*(?:korter|maja|kinnisvara)",
     r"كم سعر", r"ما سعر", r"السعر.*(?:شقة|عقار|فيلا)",
     r"כמה עולה", r"מחיר.*(?:דירה|בית|וילה|נכס)",
 ])
@@ -99,6 +107,7 @@ _extend(nf.PERSONAL_PATTERNS, [
     r"\bjeg\b", r"\bvi\b",
     r"\bio\b", r"\bnoi\b", r"\bmi\b", r"\bnosotros\b",
     r"\beu\b", r"\bn[óo]s\b",
-    r"أنا", r"نحن", r"أريد", r"أبحث",
+    r"\bmina\b", r"\bmeie\b", r"\bsoovin\b", r"\botsin\b",
+    r"أنا", r"نحن", r"أريد", r"ابحث", r"أبحث",
     r"אני", r"אנחנו", r"רוצה", r"מחפש",
 ])
