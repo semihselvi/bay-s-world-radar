@@ -121,10 +121,14 @@ EDUCATION_SERVICE_PATTERNS = [
     r"apply (?:now|today)",
     r"partner universities",
     r"\b(?:ciu|rauf|bau|fiu|gau|emu)\b",
-    r"\bsnc study\b",
+    r"\bsnc\s*study\b",
     r"@snc[_ ]?comm\b",
     r"€\s*100\s*cashback",
     r"starting from just\s*\$?\s*\d",
+    r"affordable university",
+    r"student permit",
+    r"international education",
+    r"pay (?:per|by) semester",
 ]
 
 VEHICLE_SERVICE_PATTERNS = [
@@ -142,6 +146,21 @@ VEHICLE_SERVICE_PATTERNS = [
     r"spread your payments over time",
     r"payment plan that suits your budget",
     r"suitable for students, workers, and residents",
+]
+
+DELIVERY_SERVICE_PATTERNS = [
+    r"доставка.*северн\w* кипр",
+    r"москва\s*[-–—]\s*северн\w* кипр",
+    r"отправ(?:ить|ляйте).*посылк",
+    r"получ(?:айте|ить).*посылк.*остров",
+    r"\bсдэк\b",
+    r"\bтарифы\b",
+    r"заказать доставку",
+    r"пункт.*москв",
+    r"выдача.*(?:гирне|искеле)",
+    r"дедлайн получения",
+    r"каждый следующий.*кг",
+    r"индивидуальный расч[её]т",
 ]
 
 
@@ -172,20 +191,14 @@ def _promotional_or_transfer_service_ad(text):
     if transfer_hits >= 2 or (transfer_hits >= 1 and transfer_commercial_hits >= 2):
         return True
 
-    # University-admission / scholarship agencies. These frequently contain
-    # accommodation, settlement and a price, which can otherwise resemble a
-    # relocation/property request. Require a clear education phrase or several
-    # education-commercial signals so genuine buyers mentioning a university are kept.
-    if re.search(r"study in north cyprus|university admission|up to 100% scholarship|snc study", text, re.I):
+    # University-admission / scholarship agencies.
+    if re.search(r"study in north cyprus|university admission|up to 100% scholarship|snc\s*study|affordable university", text, re.I):
         return True
     education_hits = sum(1 for pattern in EDUCATION_SERVICE_PATTERNS if re.search(pattern, text, re.I))
-    if education_hits >= 3:
+    if education_hits >= 2:
         return True
 
-    # Car dealers / vehicle-finance promotions can contain "payment plan", "budget"
-    # and North Cyprus, which are also valid property-buyer signals. Reject only
-    # clear vehicle-commercial copy; do not reject a genuine property buyer who
-    # merely mentions a car or a possible car/property swap.
+    # Car dealers / vehicle-finance promotions.
     if re.search(r"own a car in north cyprus|vehicle financing|car financing|wide range of cars", text, re.I):
         return True
     vehicle_hits = sum(1 for pattern in VEHICLE_SERVICE_PATTERNS if re.search(pattern, text, re.I))
@@ -201,7 +214,15 @@ def _promotional_or_transfer_service_ad(text):
         )
         if re.search(pattern, text, re.I)
     )
-    return vehicle_hits >= 2 or (vehicle_hits >= 1 and vehicle_commercial_hits >= 2)
+    if vehicle_hits >= 2 or (vehicle_hits >= 1 and vehicle_commercial_hits >= 2):
+        return True
+
+    # Cargo / parcel delivery services. These often mention North Cyprus locations,
+    # prices and deadlines and can otherwise look commercially concrete.
+    if re.search(r"доставка.*северн\w* кипр|заказать доставку|отправ(?:ить|ляйте).*посылк", text, re.I):
+        return True
+    delivery_hits = sum(1 for pattern in DELIVERY_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    return delivery_hits >= 2
 
 
 north_cyprus_focus._promotional_service_ad = _promotional_or_transfer_service_ad
@@ -245,12 +266,10 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
         "snchubTalkroom",
         "meetinnorthcyprus",
         "northcyprus29",
-        # SearchNorthCyprus location-specific chats.
         "searchgirne",
         "lefkosasearch",
         "iskelesearch",
         "famagustasearchsnc",
-        # Broad local/Russian-speaking communities where buyer questions occur.
         "cyprusposter",
         "cyprusmedicine",
         "nedvizhimost_kipr",
@@ -273,7 +292,8 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
         "что можно купить, сколько стоит, какой район лучше, рассрочка. Prioritize recent user posts/comments in "
         "r/NorthCyprus, r/cyprus, r/expats, r/Investors, r/realestateinvesting, expat forums, Facebook groups and Telegram "
         "communities. Exclude agents, brokers, developers, listings, advertising, transfer services, education/admission "
-        "agencies, scholarship promotions, car dealers, vehicle-finance/installment promotions, rental-only requests, guides and news."
+        "agencies, scholarship promotions, car dealers, vehicle-finance/installment promotions, parcel/cargo delivery "
+        "services, rental-only requests, guides and news."
     ),
     "exa_domains": [
         "reddit.com",
@@ -290,8 +310,6 @@ shard_runner.SHARDS["north_cyprus_hunter"] = {
     "reddit_focus": ["NorthCyprus", "cyprus", "expats", "ExpatFIRE", "AmerExit"],
 }
 
-# Persist channels found by live catalogs so tomorrow's scan does not depend on
-# discovering the same link again.
 _original_discover = source_crawler_v2.discover_public_telegram_channels
 
 
@@ -303,7 +321,6 @@ def discover_and_persist(catalog_names=None):
 
 source_crawler_v2.discover_public_telegram_channels = discover_and_persist
 
-# Override only for this process. Other World Radar shards keep their current filters.
 main.keep_candidate = north_cyprus_focus.keep_candidate
 main.buyer_scores = north_cyprus_focus.buyer_scores
 
