@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import north_cyprus_catcher as base
 import north_cyprus_focus as nf
 import north_cyprus_language_expansion  # activates extra buyer languages
+import north_cyprus_farsi_expansion     # Iranian North Cyprus community buyer language
 import north_cyprus_spam_guard
 import north_cyprus_reply_context  # patches base classifier for terse replies under property posts
 import telegram_global_search as tgs
