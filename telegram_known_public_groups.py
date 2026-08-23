@@ -22,6 +22,8 @@ KNOWN_GROUPS = [
     # Newly verified high-value public communities / marketplaces.
     "kipr_chat","iskele_chat","kiriniya","famagusta_ru","kipr_nedvizhimost","kipr360realestate","adscyprus",
     "Investments_North_Cyprus",
+    # Active Iranian community explicitly covering residence and property buying.
+    "ResidentIraniansOfCyprus",
     # Broader Cyprus relocation/expat surfaces: only messages with explicit NC
     # context survive classification, so these are high-recall but low-risk.
     "forum_cyprus","kipr_relokaciya","cyprus_expats",
