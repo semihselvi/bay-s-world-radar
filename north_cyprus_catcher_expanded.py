@@ -9,6 +9,7 @@ import north_cyprus_reply_context  # patches base classifier for terse replies u
 import telegram_global_search as tgs
 
 from north_cyprus_author_reputation import annotate_author_reputation
+import north_cyprus_notification_dedupe  # patches base notification dedupe by author+text
 from north_cyprus_open_web_plus import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from north_cyprus_source_performance import observe as observe_source
 from north_cyprus_query_performance import observe as observe_query, ranked_queries
