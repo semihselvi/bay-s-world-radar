@@ -28,7 +28,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py
+          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py
 
       - name: Run free high-recall North Cyprus scan
         timeout-minutes: 18
@@ -47,7 +47,7 @@ jobs:
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
           WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "140"
           WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "50"
-        run: python north_cyprus_recall.py
+        run: python north_cyprus_recall_guarded.py
 
       - name: Notify recall failure
         if: failure()
