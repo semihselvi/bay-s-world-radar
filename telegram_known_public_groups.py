@@ -7,6 +7,7 @@ from telethon.errors import FloodWaitError
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Chat, User
 
+from north_cyprus_source_performance import ranked_usernames
 from telegram_message_context import reply_context
 
 # Public discussion / marketplace groups verified from live Telegram pages and
@@ -19,12 +20,10 @@ KNOWN_GROUPS = [
     "NorthCyprus_Island","severnyi_kipr_russian","northcyprusok",
     # Newly verified high-value public communities / marketplaces.
     "kipr_chat","iskele_chat","kiriniya","famagusta_ru","kipr_nedvizhimost","kipr360realestate","adscyprus",
+    "Investments_North_Cyprus",
     # Broader Cyprus relocation/expat surfaces: only messages with explicit NC
     # context survive classification, so these are high-recall but low-risk.
     "forum_cyprus","kipr_relokaciya","cyprus_expats",
-    # Large Russian-speaking Cyprus property/general chats found in current
-    # public mirrors. North-Cyprus context remains mandatory at classification.
-    "CypRusPropertyChat","cyprus_chat",
 ]
 
 
@@ -45,18 +44,20 @@ async def _collect():
     api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip(); session=os.getenv("TELEGRAM_STRING_SESSION","").strip()
     if not api_id or not api_hash or not session: return []
     lookback=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback)
-    max_groups=max(1,min(len(KNOWN_GROUPS),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","32"))))
+    ordered_groups=ranked_usernames(KNOWN_GROUPS)
+    max_groups=max(1,min(len(ordered_groups),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","32"))))
     max_messages=max(30,min(180,int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES","100"))))
     client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
     if not await client.is_user_authorized(): await client.disconnect(); return []
     items={}; scanned=0
     try:
-        for username in KNOWN_GROUPS[:max_groups]:
+        for username in ordered_groups[:max_groups]:
             try:
                 chat=await client.get_entity(username)
                 if not isinstance(chat,(Channel,Chat)) or isinstance(chat,User): continue
                 if isinstance(chat,Channel) and getattr(chat,"broadcast",False) and not getattr(chat,"megagroup",False): continue
                 scanned+=1; count=0
+                actual_username=str(getattr(chat,"username",None) or username).strip().lstrip("@")
                 async for msg in client.iter_messages(chat,limit=max_messages):
                     if not msg or not getattr(msg,"message",None): continue
                     dt=getattr(msg,"date",None)
@@ -71,7 +72,7 @@ async def _collect():
                     text=str(msg.message).strip()
                     if not text: continue
                     url=_link(chat,msg.id); parent_text=await reply_context(msg)
-                    items[url]={"source":"Telegram Known NC Group","url":url,"title":f"Telegram Group | {getattr(chat,'title','') or username} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":author,"source_bucket":"telegram_known_nc_groups","telegram_chat":getattr(chat,"title","") or username,"reply_context":parent_text}
+                    items[url]={"source":"Telegram Known NC Group","url":url,"title":f"Telegram Group | {getattr(chat,'title','') or username} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":author,"source_bucket":"telegram_known_nc_groups","telegram_chat":getattr(chat,"title","") or username,"source_username":actual_username,"reply_context":parent_text}
                     count+=1
                 print(f"TELEGRAM_KNOWN_GROUP @{username} recent_human_messages={count}")
             except FloodWaitError as exc:
