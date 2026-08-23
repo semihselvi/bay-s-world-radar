@@ -17,6 +17,16 @@ COLLECTION="bay_s_dynamic_sources"
 PUBLIC_RE=re.compile(r"https?://t\.me/(?!\+|joinchat/)([A-Za-z0-9_]{5,})",re.I)
 INVITE_RE=re.compile(r"https?://t\.me/(\+[A-Za-z0-9_-]{8,}|joinchat/[A-Za-z0-9_-]{8,})",re.I)
 
+# Verified private/invite-only communities are never auto-joined. They are seeded
+# into the same JOIN LIST mechanism so the user can decide whether to join them.
+STATIC_JOIN_CANDIDATES = {
+    "https://t.me/+Rxo-Uo74TL5kZGFi",  # buyer/owner focused North Cyprus property discussion
+    "https://t.me/+1s8HYWeJIN81NDdk", # Turkey + North Cyprus property community
+    "https://t.me/+WZluIebsLjwxYTFk",
+    "https://t.me/+9zAKnC6fojdlMDBk", # Iranians North Cyprus community
+    "https://t.me/+Z_JMGTu9Zs44ODY6", # North Cyprus general community
+}
+
 
 def _nc_title(title):
     low=(title or "").lower()
@@ -34,12 +44,12 @@ def _extract(text):
 
 async def _collect_candidates():
     api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip(); session=os.getenv("TELEGRAM_STRING_SESSION","").strip()
-    if not api_id or not api_hash or not session: return set(),set()
+    if not api_id or not api_hash or not session: return set(),set(STATIC_JOIN_CANDIDATES)
     max_dialogs=int(os.getenv("WORLD_TELEGRAM_NETWORK_DIALOGS","40")); max_messages=int(os.getenv("WORLD_TELEGRAM_NETWORK_MESSAGES","80"))
     cutoff=datetime.now(timezone.utc)-timedelta(days=int(os.getenv("WORLD_TELEGRAM_NETWORK_DAYS","14")))
     client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
-    if not await client.is_user_authorized(): await client.disconnect(); return set(),set()
-    public=set(); invites=set(); dialogs=[]
+    if not await client.is_user_authorized(): await client.disconnect(); return set(),set(STATIC_JOIN_CANDIDATES)
+    public=set(); invites=set(STATIC_JOIN_CANDIDATES); dialogs=[]
     try:
         async for dialog in client.iter_dialogs(limit=220):
             entity=dialog.entity
@@ -66,7 +76,7 @@ async def _collect_candidates():
             except Exception as exc: print(f"TELEGRAM_NETWORK_CHAT_ERROR chat={title!r} {exc}")
 
         verified=set()
-        for username in sorted(public)[:80]:
+        for username in sorted(public)[:100]:
             try:
                 entity=await client.get_entity(username)
                 if isinstance(entity,Channel) and getattr(entity,"megagroup",False) and getattr(entity,"username",None):
