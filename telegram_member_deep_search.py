@@ -7,6 +7,7 @@ from telethon.errors import FloodWaitError
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Chat, User
 
+from north_cyprus_query_performance import ranked_queries
 from north_cyprus_source_performance import ranked_dialogs
 from telegram_message_context import reply_context
 
@@ -16,9 +17,12 @@ DEEP_BUYER_QUERIES = [
     "arıyorum", "almak istiyorum", "sahibinden", "var mı", "fiyat", "peşinat", "taksit",
     "hangi bölge", "hangi proje", "koçan", "tapı", "oturum",
     "ищу", "хочу купить", "нужна квартира", "цена", "рассрочка", "вторичка", "какой район",
+    "ищу на покупку", "срочно ищу", "только от собственника", "ищу виллу",
     "шукаю квартиру", "хочу купити", "szukam mieszkania", "chcę kupić",
     "خرید ملک", "خرید آپارتمان", "دنبال آپارتمان", "قیمت", "بودجه", "اقساط",
 ]
+
+CORE_DEEP_QUERIES = ["looking for", "arıyorum", "ищу", "хочу купить"]
 
 NC_TITLE_HINTS = [
     "north cyprus", "northern cyprus", "northcyprus", "trnc", "kuzey kıbrıs", "kuzey kibris",
@@ -70,12 +74,7 @@ def _sender_name(sender):
 
 def _rotating_queries(limit):
     limit = max(1, min(limit, len(DEEP_BUYER_QUERIES)))
-    if limit >= len(DEEP_BUYER_QUERIES):
-        return DEEP_BUYER_QUERIES[:]
-    now = datetime.now(timezone.utc)
-    slot = (now.timetuple().tm_yday * 8) + (now.hour // 3)
-    start = (slot * limit) % len(DEEP_BUYER_QUERIES)
-    return [DEEP_BUYER_QUERIES[(start + i) % len(DEEP_BUYER_QUERIES)] for i in range(limit)]
+    return ranked_queries(DEEP_BUYER_QUERIES, limit, core=CORE_DEEP_QUERIES, exploration_ratio=0.35)
 
 
 async def _collect():
