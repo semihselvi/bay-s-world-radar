@@ -5,7 +5,7 @@ on:
   schedule:
     # Turkey time UTC+3
     - cron: "7 6 * * *"        # 09:07 full morning scan
-    - cron: "37 6 * * *"       # 09:37 North Cyprus hunter + 1 Exa
+    - cron: "37 6 * * *"       # 09:37 North Cyprus maximum-recall + 1 Exa
     - cron: "37 4,8,10,12,14,16,18,20 * * *" # 07:37/11:37/13:37/15:37/17:37/19:37/21:37/23:37 NC recall pulses, 0 Exa
     - cron: "7 12 * * *"       # 15:07 Telegram member refresh, no Exa
     - cron: "7 18 * * *"       # 21:07 Telegram + Golden/South refresh, 1 Exa
@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Syntax check
-        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py world_hard_filters.py
+        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py world_hard_filters.py
       - name: Preflight required secrets
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -97,8 +97,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Syntax check North Cyprus lanes
-        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py
-      - name: Run North Cyprus hunter or recall
+        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py
+      - name: Run guarded maximum-recall North Cyprus lane
         timeout-minutes: 20
         env:
           WORLD_RADAR_SHARD: north_cyprus_hunter
@@ -119,12 +119,11 @@ jobs:
           WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "80"
         run: |
           if [ "${{ github.event.schedule }}" = "37 6 * * *" ]; then
-            echo "NC_MODE=hunter_exa"
-            python north_cyprus_hunter.py
+            echo "NC_MODE=maximum_recall_exa_guarded"
           else
-            echo "NC_MODE=high_recall_free"
-            python north_cyprus_recall.py
+            echo "NC_MODE=maximum_recall_free_guarded"
           fi
+          python north_cyprus_recall_guarded.py
       - name: Notify North Cyprus lane failure
         if: failure()
         env:
