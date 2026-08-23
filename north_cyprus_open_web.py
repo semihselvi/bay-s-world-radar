@@ -14,34 +14,55 @@ OPEN_WEB_ALLOWED_DOMAINS = {
     "forum.awd.ru", "britishexpats.com", "tripadvisor.com", "tripadvisor.co.uk", "turkishliving.com",
     "facebook.com", "t.me", "vk.com", "ok.ru", "dzen.ru", "pikabu.ru", "vc.ru", "quora.com",
     "threads.net", "x.com", "twitter.com",
+    # Public web mirrors/directories of Telegram discussions. These expose dated
+    # user messages and handles that normal search engines can index.
+    "new.cy", "kiprinfo.ru", "ru.intelegram.one",
 }
 
 BING_QUERIES = [
     '"North Cyprus" "looking to buy" property', '"North Cyprus" "looking for" apartment property',
     '"Northern Cyprus" "want to buy" apartment', '"North Cyprus" resale "price" apartment',
+    '"North Cyprus" "private owner" villa', '"North Cyprus" "owner direct" property',
+    '"North Cyprus" "wanted" villa', '"North Cyprus" "cash buyer" property',
     '"Long Beach" Cyprus "looking for" apartment', '"Long Beach" Cyprus resale 1+1 2+1',
     '"Iskele" Cyprus "looking to buy"', '"Kuzey Kıbrıs" "daire arıyorum"',
     '"Kuzey Kıbrıs" "ev almak istiyorum"', '"İskele" "daire arıyorum"',
-    '"Kuzey Kıbrıs" sahibinden arıyorum', '"Северный Кипр" "ищу квартиру"',
-    '"Северный Кипр" "хочу купить" недвижимость', '"Северный Кипр" "нужна квартира"',
-    '"Северный Кипр" рассрочка квартира', '"Северный Кипр" вторичка недвижимость',
-    '"Nordzypern" "Wohnung kaufen"', '"Nordzypern" "Immobilie kaufen"',
-    '"Chypre du Nord" "acheter appartement"', '"Noord-Cyprus" "woning kopen"',
-    '"Cypr Północny" "szukam mieszkania"', '"Cypr Północny" "chcę kupić" nieruchomość',
-    '"Північний Кіпр" "шукаю квартиру"', '"Північний Кіпр" "хочу купити" нерухомість',
-    '"شمال قبرص" "أبحث عن شقة"', '"شمال قبرص" "أريد شراء" عقار',
-    '"צפון קפריסין" דירה לקנות', 'site:reddit.com "North Cyprus" property buy',
-    'site:facebook.com/groups "North Cyprus" property wanted', 'site:vk.com "Северный Кипр" "ищу квартиру"',
+    '"Kuzey Kıbrıs" sahibinden arıyorum', '"İskele" sahibinden villa arıyorum',
+    '"Boğaz" İskele villa arıyorum', '"Ötüken" villa arıyorum', '"Yeniboğaziçi" villa arıyorum',
+    '"Северный Кипр" "ищу квартиру"', '"Северный Кипр" "хочу купить" недвижимость',
+    '"Северный Кипр" "нужна квартира"', '"Северный Кипр" "ищу на покупку"',
+    '"Северный Кипр" "срочно ищу" виллу', '"Северный Кипр" "только от собственника"',
+    '"Искеле" "ищу виллу"', '"Искеле" "от собственника" вилла',
+    '"Боаз" "ищу виллу"', '"Богаз" "ищу виллу"', '"Отюкен" "ищу виллу"',
+    '"Йени Боазичи" "ищу виллу"', '"Северный Кипр" рассрочка квартира',
+    '"Северный Кипр" вторичка недвижимость', '"Nordzypern" "Wohnung kaufen"',
+    '"Nordzypern" "Immobilie kaufen"', '"Chypre du Nord" "acheter appartement"',
+    '"Noord-Cyprus" "woning kopen"', '"Cypr Północny" "szukam mieszkania"',
+    '"Cypr Północny" "chcę kupić" nieruchomość', '"Північний Кіпр" "шукаю квартиру"',
+    '"Північний Кіпр" "хочу купити" нерухомість', '"شمال قبرص" "أبحث عن شقة"',
+    '"شمال قبرص" "أريد شراء" عقار', '"צפון קפריסין" דירה לקנות',
+    'site:reddit.com "North Cyprus" property buy', 'site:facebook.com/groups "North Cyprus" property wanted',
+    'site:vk.com "Северный Кипр" "ищу квартиру"', 'site:ok.ru "Северный Кипр" "ищу квартиру"',
     'site:t.me "Северный Кипр" "ищу квартиру"', 'site:expat.com "North Cyprus" "looking for property"',
+    # Search-engine indexed Telegram mirrors often preserve author + timestamp.
+    'site:new.cy/tg "Северный Кипр" "ищу" недвижимость',
+    'site:new.cy/tg Искеле "ищу" виллу',
+    'site:kiprinfo.ru/tg "Северный Кипр" "ищу" недвижимость',
+    'site:kiprinfo.ru/tg Искеле "от собственника"',
+    'site:ru.intelegram.one "Северный Кипр" недвижимость чат',
     '"Caesar Resort" resale wanted', '"Grand Sapphire" resale buyer', '"Isatis" Cyprus resale available',
     '"Elysium 2" Cyprus resale', '"Royal Sun" Long Beach resale',
 ]
 
 BUYER_HINT_PATTERNS = [
     r"looking to buy", r"want to buy", r"looking for", r"planning to buy", r"considering buying",
-    r"price", r"resale", r"available", r"budget", r"1\+1", r"2\+1", r"3\+1",
+    r"cash buyer", r"private owner", r"owner direct", r"wanted", r"price", r"resale", r"available",
+    r"budget", r"1\+1", r"2\+1", r"3\+1",
     r"daire ar[ıi]yorum", r"ev almak", r"sat[ıi]n almak", r"sahibinden", r"var m[ıi]", r"fiyat",
-    r"ищу квартир", r"хочу купить", r"нужна квартир", r"цена", r"рассроч", r"вторичк",
+    r"s[ıi]k[ıi] ar[ıi]yorum", r"villa ar[ıi]yorum",
+    r"срочно\s+ищу", r"ищу\s+на\s+покупку", r"ищу квартир", r"ищу вилл", r"хочу купить",
+    r"нужна квартир", r"куплю вилл", r"только\s+от\s+собственника", r"от\s+собственника",
+    r"отдельно\s*стоящ", r"отдельностоящ", r"цена", r"рассроч", r"вторичк",
     r"wohnung kaufen", r"immobilie kaufen", r"acheter appartement", r"woning kopen",
     r"szukam mieszkania", r"chc[ęe] kupi[ćc]", r"шукаю квартир", r"хочу купити",
     r"أبحث عن شقة", r"أريد شراء", r"לקנות", r"מחפש",
@@ -201,7 +222,7 @@ def _parse_bing_rss(query, date_probe_budget):
 def collect_bing_rss():
     mode = os.getenv("NC_OPEN_WEB_MODE", "pulse").strip().lower()
     default_limit = 12 if mode == "full" else 5
-    query_limit = max(1, min(16, int(os.getenv("NC_BING_RSS_QUERY_LIMIT", str(default_limit)))))
+    query_limit = max(1, min(20, int(os.getenv("NC_BING_RSS_QUERY_LIMIT", str(default_limit)))))
     queries = _rotating(BING_QUERIES, query_limit)
     date_probe_budget = 8 if mode == "full" else 3
     out = {}
