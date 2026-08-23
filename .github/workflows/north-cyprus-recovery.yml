@@ -30,21 +30,23 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_recovery.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_recovery.py
       - name: Run recovery radar
         env:
           NC_RECOVERY_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.days || (github.event.schedule == '32 13 * * 0' && '30' || '7') }}
           WORLD_TELEGRAM_GLOBAL_QUERY_LIMIT: "12"
           WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY: "45"
           WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS: "0"
-          WORLD_TELEGRAM_KNOWN_GROUP_LIMIT: "32"
+          WORLD_TELEGRAM_KNOWN_GROUP_LIMIT: "40"
+          WORLD_TELEGRAM_DYNAMIC_GROUP_LIMIT: "100"
           WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES: "180"
-          WORLD_TELEGRAM_DEEP_MAX_DIALOGS: "36"
-          WORLD_TELEGRAM_DEEP_QUERY_LIMIT: "8"
+          WORLD_TELEGRAM_DEEP_MAX_DIALOGS: "40"
+          WORLD_TELEGRAM_DEEP_QUERY_LIMIT: "10"
           WORLD_TELEGRAM_DEEP_RESULTS: "30"
           WORLD_TELEGRAM_COMMENT_CHANNEL_LIMIT: "20"
           WORLD_TELEGRAM_COMMENT_MESSAGES: "120"
           WORLD_TELEGRAM_NETWORK_CRAWL: "0"
+          NC_SOURCE_LEARNING: "0"
           NC_OPEN_WEB_ENABLED: "0"
           NC_CATCHER_FORUM: ${{ github.event.schedule == '32 13 * * 0' && '1' || '0' }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
