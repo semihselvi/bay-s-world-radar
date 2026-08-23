@@ -1,6 +1,7 @@
 import atexit
 import hashlib
 import math
+import os
 from datetime import datetime, timezone
 
 import main
@@ -39,6 +40,8 @@ def _doc_id(key):
 
 
 def observe(item, lead, reason):
+    if os.getenv("NC_SOURCE_LEARNING", "1").strip() != "1":
+        return
     key = source_key(item)
     row = _OBS.setdefault(key, {
         "messages": 0, "accepted": 0, "hot": 0, "warm": 0, "potential": 0,
@@ -165,7 +168,6 @@ def ranked_usernames(usernames):
 
 
 def ranked_dialogs(entries):
-    """Rank (entity,title) Telegram dialogs using username or private-group title history."""
     if len(entries)<=1: return entries
     username_scores,title_scores=_score_maps()
     def score(entry):
