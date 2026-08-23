@@ -9,7 +9,8 @@ import north_cyprus_reply_context  # patches base classifier for terse replies u
 import telegram_global_search as tgs
 
 from north_cyprus_open_web_plus import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
-from north_cyprus_source_performance import observe
+from north_cyprus_source_performance import observe as observe_source
+from north_cyprus_query_performance import observe as observe_query, ranked_queries
 from telegram_channel_comments import collect_channel_comments
 from telegram_known_public_groups import collect_known_public_groups
 from telegram_member_deep_search import collect_member_deep_search
@@ -61,31 +62,27 @@ def _unique(values):
     return out
 
 
-def _rotating_queries():
+def _smart_queries():
     all_queries=_unique(list(tgs.GLOBAL_QUERIES)+EXTRA_GLOBAL_QUERIES)
-    core_keys={c.casefold() for c in CORE_GLOBAL_QUERIES}
-    rotating=[x for x in all_queries if x.casefold() not in core_keys]
-    rotate_count=10
-    if not rotating: return CORE_GLOBAL_QUERIES[:]
-    now=datetime.now(timezone.utc); slot=now.timetuple().tm_yday*8+now.hour//3
-    start=(slot*rotate_count)%len(rotating)
-    selected=[rotating[(start+i)%len(rotating)] for i in range(min(rotate_count,len(rotating)))]
-    return _unique(CORE_GLOBAL_QUERIES+selected)
+    # Six durable market anchors stay every run. The remaining ten slots learn
+    # from real HOT/WARM/POTENTIAL yield with 30% exploration reserved.
+    return ranked_queries(all_queries, 16, core=CORE_GLOBAL_QUERIES, exploration_ratio=0.30)
 
 
-tgs.GLOBAL_QUERIES=_rotating_queries()
+tgs.GLOBAL_QUERIES=_smart_queries()
 tgs.PUBLIC_GROUP_DISCOVERY_QUERIES=_unique(list(tgs.PUBLIC_GROUP_DISCOVERY_QUERIES)+PUBLIC_GROUP_DISCOVERY_QUERIES)
 _original_collect_global=base.collect_global_telegram
 _original_classify=base._classify  # includes reply-context patch above
 
 
-def _classify_and_learn_source(item, cutoff):
+def _classify_and_learn(item, cutoff):
     lead, reason = _original_classify(item, cutoff)
-    observe(item, lead, reason)
+    observe_source(item, lead, reason)
+    observe_query(item, lead, reason)
     return lead, reason
 
 
-base._classify = _classify_and_learn_source
+base._classify = _classify_and_learn
 
 
 def expanded_collect_global():
