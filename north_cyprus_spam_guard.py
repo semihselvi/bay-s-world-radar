@@ -14,8 +14,10 @@ RUSSIAN_STRONG_BUYER_PATTERNS = [
     r"\bищу\s+на\s+покупку\b",
     r"\bищу\s+(?:на\s+покупку\s+)?(?:отдельно\s*стоящую|отдельностоящую)?\s*вилл",
     r"\bнужна\s+(?:отдельно\s*стоящая|отдельностоящая)?\s*вилл",
-    r"\bкуплю\s+(?:отдельно\s*стоящую|отдельностоящую)?\s*вилл",
+    r"\bкуплю\s+(?:квартир\w*|апартамент\w*|дом\w*|вилл\w*|студи\w*|недвижимост\w*)\b",
     r"\bищу\s+.*\bтолько\s+от\s+собственника\b",
+    r"\bищу\s+.*\b(?:купить|для\s+покупки)\b",
+    r"\bклиент\s+ищет\b",
 ]
 
 RUSSIAN_REQUEST_BUYER_PATTERNS = [
@@ -23,6 +25,7 @@ RUSSIAN_REQUEST_BUYER_PATTERNS = [
     r"\bот\s+собственника\b",
     r"\bбез\s+агент(?:ов|ств)?\b",
     r"\bна\s+покупку\b",
+    r"\bклиент\s+ищет\b",
 ]
 
 RUSSIAN_NC_LOCATION_PATTERNS = [
@@ -130,6 +133,58 @@ EARNING_SPAM_PATTERNS = [
     r"\bнапиши\s+(?:мне\s+)?в\s+(?:лс|личку)\b",
 ]
 
+# High-volume job spam observed in North Cyprus chat groups. These messages often
+# contain money figures and personal wording, which can accidentally satisfy the
+# generic concrete/personal gates unless rejected before buyer scoring.
+JOB_SPAM_PATTERNS = [
+    r"\bнужен\s+водитель\b",
+    r"\bнужен\s+человек\b",
+    r"\bработа\s+(?:в|по)\s+(?:твоем|вашем|месту|городу)\b",
+    r"\bваканси\w*\b",
+    r"\bшабашк\w*\b",
+    r"\bоплата\s+\d[\d\s.,]*(?:доллар|руб|тысяч|₽|\$)?\b",
+    r"\b\d+\s*(?:тысяч|доллар(?:ов)?|руб(?:лей)?)\s+(?:за|в)\s+\d+\s*час",
+    r"\bработа\s+без\s+опыта\b",
+    r"\bподработка\b",
+    r"\bежедневн\w*\s+оплата\b",
+    r"\bhiring\b",
+    r"\bvacanc(?:y|ies)\b",
+    r"\bdaily pay\b",
+    r"\bjob offer\b",
+]
+
+# SMM/follower/engagement services are unrelated to property buyer intent. Farsi
+# variants matter because large Iranian North Cyprus groups contain this traffic.
+SOCIAL_MEDIA_SERVICE_PATTERNS = [
+    r"خدمات\s+(?:حرفه.?ای|تخصصی).*اینستاگرام",
+    r"خدمات.*شبکه.?های\s+اجتماعی",
+    r"فالوور\s+(?:واقعی|فیک)",
+    r"لایک\s+و\s+ویو",
+    r"افزایش\s+تعامل",
+    r"اینستاگرام",
+    r"تلگرام",
+    r"تیک.?تاک",
+    r"یوتیوب",
+    r"\bsmm\b",
+    r"\bsocial media (?:service|services|marketing)\b",
+    r"\bbuy followers\b",
+    r"\binstagram followers\b",
+    r"\btelegram members\b",
+    r"\bнакрут(?:ка|ить).*подписчик",
+    r"\bпродвижение.*(?:instagram|telegram|tiktok|youtube)\b",
+]
+
+# Foreign-market property advertisements can be posted inside a North Cyprus
+# community. The group title alone must not turn an Oman/Dubai/etc sales ad into
+# a North Cyprus buyer. Keep this focused on clearly promotional combinations.
+FOREIGN_PROPERTY_PROMO_PATTERNS = [
+    r"اقامت\s+عمان.*خرید\s+ملک",
+    r"عمان.*(?:پروژه|پروژه.?های|پیش.?فروش|اقساط|مالکیت\s*۱۰۰|مالکیت\s*100|مسقط)",
+    r"مسقط.*(?:خرید\s+ملک|پروژه|پیش.?فروش|مالکیت|اقساط)",
+    r"\boman\b.*\b(?:residency|property|project|off[- ]plan|installment)\b",
+    r"\bmuscat\b.*\b(?:property|project|off[- ]plan|ownership|installment)\b",
+]
+
 
 def promotional_service_or_recruitment_ad(text):
     if _original_promotional_service_ad(text):
@@ -151,6 +206,28 @@ def promotional_service_or_recruitment_ad(text):
 
     recruitment_hits = sum(1 for pattern in RECRUITMENT_PATTERNS if re.search(pattern, text, re.I | re.S))
     if recruitment_hits >= 3:
+        return True
+
+    # Job spam is usually a cluster of role + pay + work wording. A direct job
+    # marker (driver/vacancy/шабашка) plus one more signal is enough to reject.
+    job_hits = sum(1 for pattern in JOB_SPAM_PATTERNS if re.search(pattern, text, re.I | re.S))
+    if job_hits >= 2 or (
+        re.search(r"\b(?:нужен\s+водитель|ваканси\w*|шабашк\w*|подработка|job offer|hiring)\b", text, re.I)
+        and job_hits >= 1
+    ):
+        return True
+
+    # Social-media services need multiple service/product markers so an ordinary
+    # sentence mentioning Instagram or Telegram is not rejected by itself.
+    social_hits = sum(1 for pattern in SOCIAL_MEDIA_SERVICE_PATTERNS if re.search(pattern, text, re.I | re.S))
+    if social_hits >= 3:
+        return True
+    if re.search(r"خدمات.*(?:اینستاگرام|تلگرام|شبکه.?های\s+اجتماعی)", text, re.I | re.S) and social_hits >= 2:
+        return True
+
+    # Explicit foreign-market property/residency promotion is not a North Cyprus
+    # buyer even when it contains phrases equivalent to "buy property".
+    if any(re.search(pattern, text, re.I | re.S) for pattern in FOREIGN_PROPERTY_PROMO_PATTERNS):
         return True
 
     # A direct money-making pitch plus DM CTA is enough to reject. A single
