@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
+import os
 
 import north_cyprus_catcher as base
 import north_cyprus_focus as nf
 import north_cyprus_spam_guard
 import telegram_global_search as tgs
 
+from north_cyprus_conversation import stitch_conversations
 from north_cyprus_open_web_plus import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from telegram_channel_comments import collect_channel_comments
 from telegram_known_public_groups import collect_known_public_groups
@@ -83,12 +85,25 @@ def expanded_collect_global():
     deep_member=collect_member_deep_search(); buckets.append(("telegram_joined_deep",deep_member))
     channel_comments=collect_channel_comments(); buckets.append(("telegram_channel_comments",channel_comments))
     open_web=collect_open_web(); buckets.append(("open_web_reddit_bing_dynamic",open_web))
-    unique={}; counts={}
+
+    originals=[]; unique={}; counts={}
     for name,items in buckets:
         counts[name]=len(items)
         for item in items:
-            key=item.get("url") or base.main.dedupe_key(item); unique[key]=item
-    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"unique",len(unique))
+            key=item.get("url") or base.main.dedupe_key(item)
+            if key not in unique:
+                unique[key]=item
+                originals.append(item)
+
+    # Live Catcher previously collected reply context but only Recovery actually
+    # stitched fragmented user messages. Activate the same rescue on every run.
+    gap=max(2,min(12,int(os.getenv("NC_STITCH_GAP_HOURS","6"))))
+    stitched=stitch_conversations(originals,max_gap_hours=gap)
+    for item in stitched:
+        key="stitch|"+base.main.dedupe_key(item)
+        unique[key]=item
+
+    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"stitched",len(stitched),"unique",len(unique))
     return list(unique.values())
 
 
