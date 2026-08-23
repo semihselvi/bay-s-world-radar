@@ -25,7 +25,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_global_search.py telegram_member_deep_search.py telegram_channel_comments.py north_cyprus_open_web.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py north_cyprus_open_web.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_catcher.py north_cyprus_catcher_expanded.py
       - name: Run expanded North Cyprus catcher
         timeout-minutes: 25
         env:
@@ -35,6 +35,8 @@ jobs:
           WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
           WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT: "35"
           WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES: "90"
+          WORLD_TELEGRAM_KNOWN_GROUP_LIMIT: "17"
+          WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES: ${{ github.event.schedule == '52 6 * * *' && '120' || '70' }}
           WORLD_TELEGRAM_DEEP_MAX_DIALOGS: ${{ github.event.schedule == '52 6 * * *' && '32' || '24' }}
           WORLD_TELEGRAM_DEEP_QUERY_LIMIT: "8"
           WORLD_TELEGRAM_DEEP_RESULTS: "18"
