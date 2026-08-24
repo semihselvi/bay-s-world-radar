@@ -55,7 +55,9 @@ async def _message_item(msg,chat,source,source_bucket,query=""):
     title=getattr(chat,"title","") or "Telegram public group"
     parent_text=await reply_context(msg)
     source_username=str(getattr(chat,"username","") or "").strip().lstrip("@")
-    return {"source":source,"url":_chat_link(chat,msg.id),"title":f"{source} | {title}","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":_sender_name(sender),"source_bucket":source_bucket,"telegram_chat":title,"source_username":source_username,"telegram_query":query,"reply_context":parent_text}
+    telegram_user_id=str(int(getattr(sender,"id",0) or 0))
+    telegram_chat_id=str(int(getattr(chat,"id",0) or 0))
+    return {"source":source,"url":_chat_link(chat,msg.id),"title":f"{source} | {title}","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":_sender_name(sender),"telegram_user_id":telegram_user_id,"telegram_chat_id":telegram_chat_id,"source_bucket":source_bucket,"telegram_chat":title,"source_username":source_username,"telegram_query":query,"reply_context":parent_text}
 
 
 def _persist_discovered_groups(groups):
