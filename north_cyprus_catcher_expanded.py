@@ -9,7 +9,8 @@ import north_cyprus_reply_context  # patches base classifier for terse replies u
 import telegram_global_search as tgs
 
 from north_cyprus_author_reputation import annotate_author_reputation
-import north_cyprus_notification_dedupe  # patches base notification dedupe by author+text
+from north_cyprus_cross_group import stitch_cross_group_identity
+import north_cyprus_notification_dedupe  # patches base notification dedupe by person+text
 from north_cyprus_open_web_plus import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from north_cyprus_source_performance import observe as observe_source
 from north_cyprus_query_performance import observe as observe_query, ranked_queries
@@ -66,20 +67,16 @@ def _unique(values):
 
 def _smart_queries():
     all_queries=_unique(list(tgs.GLOBAL_QUERIES)+EXTRA_GLOBAL_QUERIES)
-    # Six durable market anchors stay every run. The remaining ten slots learn
-    # from real HOT/WARM/POTENTIAL yield with 30% exploration reserved.
     return ranked_queries(all_queries, 16, core=CORE_GLOBAL_QUERIES, exploration_ratio=0.30)
 
 
 tgs.GLOBAL_QUERIES=_smart_queries()
 tgs.PUBLIC_GROUP_DISCOVERY_QUERIES=_unique(list(tgs.PUBLIC_GROUP_DISCOVERY_QUERIES)+PUBLIC_GROUP_DISCOVERY_QUERIES)
 _original_collect_global=base.collect_global_telegram
-_original_classify=base._classify  # includes reply-context patch above
+_original_classify=base._classify
 
 
 def _classify_and_learn(item, cutoff):
-    # Buyer-shaped messages from a person with strong seller/agent history are
-    # usually sourcing inventory for a client, not the end buyer we want.
     if item.get("suspected_agent"):
         lead, reason = None, "agent_history"
     else:
@@ -93,8 +90,6 @@ base._classify = _classify_and_learn
 
 
 def expanded_collect_global():
-    # Morning/full runs can discover t.me links inside the existing community graph.
-    # Public groups are persisted automatically; private invites are only surfaced as a JOIN LIST.
     network_stats=crawl_network()
     buckets=[]
     normal_global=_original_collect_global(); buckets.append(("telegram_global_public",normal_global))
@@ -103,8 +98,6 @@ def expanded_collect_global():
     channel_comments=collect_channel_comments(); buckets.append(("telegram_channel_comments",channel_comments))
     open_web=collect_open_web(); buckets.append(("open_web_reddit_bing_dynamic",open_web))
 
-    # base.run() performs conversation stitching exactly once. Do not pre-stitch
-    # here; doing it twice creates synthetic duplicates and distorts source yield.
     unique={}; counts={}
     for name,items in buckets:
         counts[name]=len(items)
@@ -113,8 +106,17 @@ def expanded_collect_global():
             unique[key]=item
 
     collected=list(unique.values())
+    # First determine seller/agent personas on the raw person-level messages.
     annotate_author_reputation(collected)
-    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"unique",len(collected))
+
+    # Then combine the same stable Telegram user across different groups. This
+    # creates a synthetic buyer profile only when multiple groups contribute a
+    # real buyer/request/property signal. Repeated demand across groups is marked
+    # explicitly and can naturally score HOT through the existing buyer scorer.
+    cross_profiles=stitch_cross_group_identity(collected,max_gap_hours=72,max_parts=8)
+    collected.extend(cross_profiles)
+
+    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"cross_group_profiles",len(cross_profiles),"unique",len(collected))
     return collected
 
 
