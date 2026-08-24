@@ -11,31 +11,19 @@ import main
 from north_cyprus_source_performance import ranked_usernames
 from telegram_message_context import reply_context
 
-# Public discussion / marketplace groups verified from live Telegram pages and
-# Cyprus community directories. Seller-heavy groups remain useful because the
-# shared buyer classifier rejects listings/agents and keeps human wanted posts.
 KNOWN_GROUPS = [
     "cyprusy","cyprusposter","severnyy_kipr","north_cypruschat","northcypruschat","nordcyprus",
     "base_north_cyprus","kibris_cyprus","caesar_resort_chat","kipr_severnii","cyprusforum",
     "cyprus_nedvizhimost","meetinnorthcyprus","searchgirne","iskelesearch","famagustasearchsnc","lefkosasearch",
     "NorthCyprus_Island","severnyi_kipr_russian","northcyprusok",
-    # Newly verified high-value public communities / marketplaces.
     "kipr_chat","iskele_chat","kiriniya","famagusta_ru","kipr_nedvizhimost","kipr360realestate","adscyprus",
     "Investments_North_Cyprus",
-    # Active Iranian community explicitly covering residence and property buying.
     "ResidentIraniansOfCyprus",
-    # Broader Cyprus relocation/expat surfaces: only messages with explicit NC
-    # context survive classification, so these are high-recall but low-risk.
     "forum_cyprus","kipr_relokaciya","cyprus_expats",
 ]
 
 
 def _dynamic_groups(limit=100):
-    """Load public groups found by Source Scout / Telegram Network Crawler.
-
-    This closes the discovery loop: a newly found group is not just stored in
-    Firestore; it becomes a live Catcher source on the very next run.
-    """
     db = main.firestore_client()
     if not db:
         return []
@@ -88,6 +76,7 @@ async def _collect():
                 if isinstance(chat,Channel) and getattr(chat,"broadcast",False) and not getattr(chat,"megagroup",False): continue
                 scanned+=1; count=0
                 actual_username=str(getattr(chat,"username",None) or username).strip().lstrip("@")
+                telegram_chat_id=str(int(getattr(chat,"id",0) or 0))
                 async for msg in client.iter_messages(chat,limit=max_messages):
                     if not msg or not getattr(msg,"message",None): continue
                     dt=getattr(msg,"date",None)
@@ -102,7 +91,7 @@ async def _collect():
                     text=str(msg.message).strip()
                     if not text: continue
                     url=_link(chat,msg.id); parent_text=await reply_context(msg)
-                    items[url]={"source":"Telegram Known/Dynamic NC Group","url":url,"title":f"Telegram Group | {getattr(chat,'title','') or username} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":author,"source_bucket":"telegram_known_nc_groups","telegram_chat":getattr(chat,"title","") or username,"source_username":actual_username,"reply_context":parent_text}
+                    items[url]={"source":"Telegram Known/Dynamic NC Group","url":url,"title":f"Telegram Group | {getattr(chat,'title','') or username} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":author,"telegram_user_id":str(int(getattr(sender,"id",0) or 0)),"telegram_chat_id":telegram_chat_id,"source_bucket":"telegram_known_nc_groups","telegram_chat":getattr(chat,"title","") or username,"source_username":actual_username,"reply_context":parent_text}
                     count+=1
                 print(f"TELEGRAM_KNOWN_GROUP @{username} recent_human_messages={count}")
             except FloodWaitError as exc:
