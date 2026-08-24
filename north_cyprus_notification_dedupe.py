@@ -20,23 +20,20 @@ def _normalized_text(value):
 
 
 def content_fingerprint(lead):
-    """Stable fingerprint for repeated same-person/same-text notifications.
-
-    Public @usernames are safe to compare across groups. Display names are only
-    compared inside the same Telegram chat to reduce accidental collisions.
-    """
-    author = " ".join(str(lead.get("author") or "").strip().casefold().split())
-    if not author:
-        return ""
+    """Stable fingerprint for repeated same-person/same-text notifications."""
     body = _normalized_text(lead.get("text"))
     if len(body) < 28:
         return ""
 
-    if author.startswith("@"):
+    user_id = str(lead.get("telegram_user_id") or "").strip()
+    author = " ".join(str(lead.get("author") or "").strip().casefold().split())
+    if user_id.isdigit() and user_id != "0":
+        identity = f"telegram_user:{user_id}"
+    elif author.startswith("@"):
         identity = author
     else:
         chat = " ".join(str(lead.get("telegram_chat") or "").strip().casefold().split())
-        if not chat:
+        if not author or not chat:
             return ""
         identity = f"{chat}|{author}"
 
@@ -71,8 +68,6 @@ def _recent_content_seen(db, lead):
 
 
 def notified_before_with_content(db, lead):
-    # Keep legacy URL-based dedupe first, then suppress same-author/same-text
-    # reposts even when Telegram assigns a different message URL each time.
     if _original_notified_before(db, lead):
         return True
     return _recent_content_seen(db, lead)
@@ -87,10 +82,11 @@ def mark_notified_with_content(db, lead):
         return
     try:
         db.collection(base.NOTIFIED_COLLECTION).document(doc_id).set({
-            "dedupe_type": "same_author_same_text",
+            "dedupe_type": "same_person_same_text",
             "content_fingerprint": doc_id.removeprefix("content_"),
             "url": lead.get("url", ""),
             "author": lead.get("author", ""),
+            "telegram_user_id": lead.get("telegram_user_id", ""),
             "telegram_chat": lead.get("telegram_chat", ""),
             "classification": lead.get("classification", ""),
             "notified_at": main.now_utc().isoformat(),
