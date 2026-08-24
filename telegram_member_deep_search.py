@@ -102,9 +102,6 @@ async def _collect():
     items = {}
     dialogs = []
     try:
-        # Collect the whole relevant dialog universe first, then rank it. The old
-        # code stopped at the first N dialogs, which could permanently hide a
-        # productive group simply because Telegram listed it later.
         async for dialog in client.iter_dialogs(limit=260):
             entity = dialog.entity
             if not _discussion_group(entity):
@@ -119,6 +116,7 @@ async def _collect():
         for d_idx, (entity, title) in enumerate(dialogs, 1):
             chat_hits = 0
             source_username = str(getattr(entity, "username", "") or "").strip().lstrip("@")
+            telegram_chat_id = str(int(getattr(entity, "id", 0) or 0))
             for query in queries:
                 try:
                     async for msg in client.iter_messages(entity, search=query, limit=results_per_query):
@@ -145,7 +143,10 @@ async def _collect():
                             "source": "Telegram Joined-Group Deep Search", "url": url,
                             "title": f"Telegram Deep | {title}", "text": text,
                             "published": dt.astimezone(timezone.utc).isoformat(),
-                            "author": _sender_name(sender), "source_bucket": "telegram_member_deep_search",
+                            "author": _sender_name(sender),
+                            "telegram_user_id": str(int(getattr(sender, "id", 0) or 0)),
+                            "telegram_chat_id": telegram_chat_id,
+                            "source_bucket": "telegram_member_deep_search",
                             "telegram_chat": title, "source_username": source_username, "telegram_query": query,
                             "reply_context": parent_text,
                         }
