@@ -39,13 +39,16 @@ def _matches(text, patterns):
 
 
 def _author_key(item):
+    # Numeric Telegram user id is the preferred persistent identity because it
+    # survives username changes and works across different groups.
+    user_id = str(item.get("telegram_user_id") or "").strip()
+    if user_id.isdigit() and user_id != "0":
+        return "telegram_user:" + user_id, True
     author = " ".join(str(item.get("author") or "").strip().lower().split())
     chat = " ".join(str(item.get("telegram_chat") or "").strip().lower().split())
     if author.startswith("@") and len(author) > 2:
         return "telegram:" + author, True
     if author and chat:
-        # Display names are only reliable inside the current scan/chat. Never use
-        # them as a persistent cross-chat identity because names can collide.
         return f"ephemeral:{chat}|{author}", False
     return "", False
 
@@ -99,7 +102,7 @@ def _load_persistent(keys):
     if not db:
         return out
     for key in keys:
-        if not key.startswith("telegram:@"):
+        if not (key.startswith("telegram:@") or key.startswith("telegram_user:")):
             continue
         try:
             snap = db.collection(COLLECTION).document(_doc_id(key)).get()
@@ -111,13 +114,7 @@ def _load_persistent(keys):
 
 
 def annotate_author_reputation(items):
-    """Tag buyer-shaped posts from authors who behave like agents/sellers.
-
-    A single wanted/buyer message is not enough to trust the persona. We inspect
-    other messages by the same author in the same scan and persist only stable
-    @usernames. This catches agents who write 'urgent, looking to buy...' while
-    sourcing stock for clients, without globally blocking normal buyer wording.
-    """
+    """Tag buyer-shaped posts from authors who behave like agents/sellers."""
     if os.getenv("NC_AUTHOR_REPUTATION", "1").strip() != "1":
         return items
 
@@ -158,8 +155,6 @@ def annotate_author_reputation(items):
         historical_listing_messages = int(old.get("seller_messages", 0) or 0)
         known_professional = bool(old.get("explicit_professional", False))
 
-        # High-confidence agent persona: explicit occupation OR repeated seller
-        # behavior in this scan OR strong accumulated seller history.
         risk = 0
         if explicit_professional or known_professional:
             risk = 100
@@ -179,15 +174,14 @@ def annotate_author_reputation(items):
                 row["agent_evidence"] = sorted(reasons)[:8]
             flagged += 1
 
-        # Persist only stable Telegram usernames. Buyer-like counts are retained
-        # for audit, but do not erase a strong seller/agent history.
-        if db and key.startswith("telegram:@"):
+        if db and (key.startswith("telegram:@") or key.startswith("telegram_user:")):
             try:
                 ref = db.collection(COLLECTION).document(_doc_id(key))
                 merged = dict(old)
                 merged.update({
                     "author_key": key,
                     "author": rows[0].get("author", ""),
+                    "telegram_user_id": rows[0].get("telegram_user_id", ""),
                     "last_seen": now,
                     "seller_evidence": historical_seller + current_seller,
                     "seller_messages": historical_listing_messages + seller_messages,
