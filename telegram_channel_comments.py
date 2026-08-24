@@ -10,8 +10,6 @@ from telethon.tl.types import Channel, User
 
 from telegram_message_context import reply_context
 
-# Property/relocation channels are valuable even when their own posts are ads:
-# real buyers often reveal themselves in the linked discussion comments.
 NC_PARENT_CHANNELS = [
     "velesproperty", "btinvestnorthcyprus", "simoncyprus", "leverageinvestmentsofficial",
     "flatty_cyprus", "cyprusposter", "nedvizhimost_kipr",
@@ -70,6 +68,7 @@ async def _collect():
                     except Exception: pass
                 if not isinstance(discussion,Channel) or not getattr(discussion,"megagroup",False): continue
                 linked_found+=1; parent_title=getattr(parent,"title","") or username; discussion_title=getattr(discussion,"title","") or "discussion"; count=0
+                telegram_chat_id=str(int(getattr(discussion,"id",0) or 0))
                 async for msg in client.iter_messages(discussion,limit=message_limit):
                     if not msg or not getattr(msg,"message",None): continue
                     dt=getattr(msg,"date",None)
@@ -83,7 +82,7 @@ async def _collect():
                     text=str(msg.message).strip()
                     if not text: continue
                     url=_chat_link(discussion,msg.id); parent_text=await reply_context(msg)
-                    items[url]={"source":"Telegram Channel Comments","url":url,"title":f"Telegram Comments | {parent_title} / {discussion_title} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":_sender_name(sender),"source_bucket":"telegram_channel_comments_north_cyprus","telegram_chat":f"{discussion_title} | North Cyprus","telegram_parent_channel":f"@{username}","reply_context":parent_text}
+                    items[url]={"source":"Telegram Channel Comments","url":url,"title":f"Telegram Comments | {parent_title} / {discussion_title} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":_sender_name(sender),"telegram_user_id":str(int(getattr(sender,"id",0) or 0)),"telegram_chat_id":telegram_chat_id,"source_bucket":"telegram_channel_comments_north_cyprus","telegram_chat":f"{discussion_title} | North Cyprus","telegram_parent_channel":f"@{username}","reply_context":parent_text}
                     count+=1
                 print(f"TELEGRAM_COMMENT_CHANNEL [{idx}/{len(channels)}] @{username} linked={discussion_title!r} recent_human_messages={count}")
             except FloodWaitError as exc:
