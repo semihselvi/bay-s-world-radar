@@ -14,14 +14,16 @@ def _norm(text: str) -> str:
 PROPERTY_CONTEXT = [
     "property", "real estate", "apartment", "flat", "villa", "house", "studio", "penthouse",
     "daire", "ev", "villa", "konut", "gayrimenkul", "stüdyo", "rezidans",
-    "квартира", "вилла", "дом", "недвижимость", "студия", "апартаменты",
+    # Russian stems are intentional: nouns are heavily inflected (квартира/квартиру/квартиры etc.).
+    "квартир", "вилл", "дом", "недвижимост", "студи", "апартамент",
 ]
 
 NC_CONTEXT = [
-    "north cyprus", "northern cyprus", "trnc", "kktc", "iskele", "iskеле", "long beach",
+    "north cyprus", "northern cyprus", "trnc", "kktc", "iskele", "long beach",
     "kyrenia", "famagusta", "gazimagusa", "gazimağusa", "yenibogazici", "yeniboğaziçi", "bogaz", "boğaz", "otuken", "ötüken",
     "kuzey kıbrıs", "kuzey kibris", "iskele", "girne", "mağusa", "magusa",
-    "северный кипр", "искеле", "лонг бич", "кирения", "фамагуста", "боаз", "отюкен", "ени богазичи",
+    # Russian stems cover grammatical cases: Фамагуста/Фамагусте, Искеле, Кирения/Кирении etc.
+    "северн", "кипр", "искел", "лонг бич", "кирени", "фамагуст", "боаз", "отюкен", "ени богазич",
 ]
 
 EXPLICIT_BUY = [
@@ -29,7 +31,7 @@ EXPLICIT_BUY = [
     "buy an apartment", "buy a villa", "purchase a property", "purchase an apartment", "purchase a villa",
     "ev almak istiyorum", "daire almak istiyorum", "satın almak istiyorum", "satın alacağım", "satın almayı düşünüyorum",
     "daire arıyorum", "villa arıyorum", "ev arıyorum", "yatırım için daire arıyorum", "almak için arıyorum",
-    "хочу купить", "куплю", "ищу квартиру", "ищу виллу", "ищу дом", "ищу на покупку", "готов купить", "хотим купить",
+    "хочу купить", "куплю", "ищу квартир", "ищу вилл", "ищу дом", "ищу на покупку", "готов купить", "хотим купить",
 ]
 
 RELOCATION_INTENT = [
@@ -104,7 +106,6 @@ FOREIGN_MARKET_PROMO = [
     "oman residency", "muscat projects", "dubai property", "uae property", "georgia property", "montenegro property",
     "оман недвижимость", "дубай недвижимость", "грузия недвижимость", "черногория недвижимость",
 ]
-
 
 
 def _contains_any(text: str, phrases: list[str]) -> bool:
