@@ -66,6 +66,29 @@ def _rotate(values, count):
     start=(slot*count) % len(values)
     return [values[(start+i)%len(values)] for i in range(count)]
 
+
+# Discovery is an enrichment step; scanning the existing watchlist is the lead-producing
+# step. A transient Firestore persistence problem must not make the whole YouTube lane
+# red or prevent us from scanning comments already on the watchlist.
+_base_discover_videos = yr.discover_videos
+
+
+def _safe_discover_videos(deep=False):
+    try:
+        return _base_discover_videos(deep=deep)
+    except Exception as exc:
+        print("YOUTUBE_DISCOVERY_DEGRADED", repr(exc))
+        try:
+            yr.main.notify_telegram(
+                "⚠️ BAY-S YOUTUBE discovery geçici olarak atlandı. Mevcut video watchlist yorum taraması devam ediyor."
+            )
+        except Exception:
+            pass
+        return 0
+
+
+yr.discover_videos = _safe_discover_videos
+
 # Workflow still caps discovery calls. Keep core market phrases every day and
 # rotate languages/projects through the remaining slots instead of always using
 # only the first entries of the original list.
