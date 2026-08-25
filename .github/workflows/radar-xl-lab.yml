@@ -1,0 +1,75 @@
+name: BAY-S Radar XL Lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_live:
+        description: "Run live discovery after self-test"
+        required: true
+        type: boolean
+        default: false
+      firecrawl_queries:
+        description: "Maximum Firecrawl search calls (0 = disabled)"
+        required: true
+        type: string
+        default: "0"
+      browser_tasks:
+        description: "Maximum Browser Use fallback tasks (0 = disabled)"
+        required: true
+        type: string
+        default: "0"
+
+concurrency:
+  group: bay-s-radar-xl-lab
+  cancel-in-progress: false
+
+jobs:
+  radar-xl-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-radar-xl.txt
+
+      - name: Install Radar XL dependencies
+        run: pip install -r requirements-radar-xl.txt
+
+      - name: Radar XL self-test
+        run: python -m radar_xl.selftest
+
+      - name: Install Agent Reach discovery tools for live lab
+        if: ${{ inputs.run_live }}
+        run: |
+          pip install https://github.com/Panniantong/agent-reach/archive/main.zip
+          pip install twitter-cli yt-dlp
+          agent-reach doctor --json || true
+
+      - name: Run isolated live Radar XL
+        if: ${{ inputs.run_live }}
+        env:
+          RADAR_XL_DRY_RUN: "1"
+          RADAR_XL_AGENT_REACH_ENABLED: "1"
+          RADAR_XL_FIRECRAWL_ENABLED: ${{ inputs.firecrawl_queries != '0' && '1' || '0' }}
+          RADAR_XL_FIRECRAWL_MAX_QUERIES: ${{ inputs.firecrawl_queries }}
+          RADAR_XL_BROWSER_USE_ENABLED: ${{ inputs.browser_tasks != '0' && '1' || '0' }}
+          RADAR_XL_BROWSER_USE_MAX_TASKS: ${{ inputs.browser_tasks }}
+          RADAR_XL_HERMES_ENABLED: "0"
+          RADAR_XL_LOOKBACK_HOURS: "168"
+          FIRECRAWL_API_KEY: ${{ secrets.RADAR_XL_FIRECRAWL_API_KEY }}
+          BROWSER_USE_API_KEY: ${{ secrets.RADAR_XL_BROWSER_USE_API_KEY }}
+          TWITTER_AUTH_TOKEN: ${{ secrets.RADAR_XL_TWITTER_AUTH_TOKEN }}
+          TWITTER_CT0: ${{ secrets.RADAR_XL_TWITTER_CT0 }}
+        run: python -m radar_xl.run
+
+      - name: Upload Radar XL lab output
+        if: ${{ inputs.run_live }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-xl-output
+          path: radar_xl_output/
+          if-no-files-found: warn
