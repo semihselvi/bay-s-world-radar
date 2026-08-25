@@ -1,6 +1,13 @@
 name: BAY-S Radar XL Lab
 
 on:
+  push:
+    branches:
+      - radar-xl
+    paths:
+      - "radar_xl/**"
+      - "requirements-radar-xl.txt"
+      - ".github/workflows/radar-xl-lab.yml"
   workflow_dispatch:
     inputs:
       run_live:
@@ -20,7 +27,7 @@ on:
         default: "0"
 
 concurrency:
-  group: bay-s-radar-xl-lab
+  group: bay-s-radar-xl-lab-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -39,18 +46,21 @@ jobs:
       - name: Install Radar XL dependencies
         run: pip install -r requirements-radar-xl.txt
 
+      - name: Radar XL syntax check
+        run: python -m py_compile radar_xl/*.py radar_xl/providers/*.py
+
       - name: Radar XL self-test
         run: python -m radar_xl.selftest
 
       - name: Install Agent Reach discovery tools for live lab
-        if: ${{ inputs.run_live }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
         run: |
           pip install https://github.com/Panniantong/agent-reach/archive/main.zip
           pip install twitter-cli yt-dlp
           agent-reach doctor --json || true
 
       - name: Run isolated live Radar XL
-        if: ${{ inputs.run_live }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
         env:
           RADAR_XL_DRY_RUN: "1"
           RADAR_XL_AGENT_REACH_ENABLED: "1"
@@ -67,7 +77,7 @@ jobs:
         run: python -m radar_xl.run
 
       - name: Upload Radar XL lab output
-        if: ${{ inputs.run_live }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live }}
         uses: actions/upload-artifact@v4
         with:
           name: radar-xl-output
