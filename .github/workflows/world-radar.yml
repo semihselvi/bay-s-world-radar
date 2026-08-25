@@ -81,7 +81,8 @@ jobs:
           python - <<'PY'
           import os,requests
           t=os.getenv('TELEGRAM_BOT_TOKEN',''); c=os.getenv('TELEGRAM_CHAT_ID','')
-          if t and c: requests.post(f'https://api.telegram.org/bot{t}/sendMessage',json={'chat_id':c,'text':'⚠️ BAY-S WORLD RADAR morning shard failed. Check GitHub Actions.'},timeout=15)
+          msg="⚠️ BAY-S WORLD RADAR shard failed: ${{ matrix.shard }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if t and c: requests.post(f'https://api.telegram.org/bot{t}/sendMessage',json={'chat_id':c,'text':msg},timeout=15)
           PY
 
   north-cyprus-hunter:
@@ -133,7 +134,8 @@ jobs:
           python - <<'PY'
           import os,requests
           t=os.getenv('TELEGRAM_BOT_TOKEN',''); c=os.getenv('TELEGRAM_CHAT_ID','')
-          if t and c: requests.post(f'https://api.telegram.org/bot{t}/sendMessage',json={'chat_id':c,'text':'⚠️ BAY-S NORTH CYPRUS radar lane failed. Check GitHub Actions.'},timeout=15)
+          msg="⚠️ BAY-S NORTH CYPRUS radar lane failed.\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if t and c: requests.post(f'https://api.telegram.org/bot{t}/sendMessage',json={'chat_id':c,'text':msg},timeout=15)
           PY
 
   afternoon-telegram:
