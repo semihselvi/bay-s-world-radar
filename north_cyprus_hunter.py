@@ -80,9 +80,6 @@ def _persist_channels(channels, discovered_by):
             batch.commit()
             print(f"DYNAMIC_TELEGRAM_SAVED count={count} by={discovered_by}")
         except Exception as exc:
-            # Dynamic-source persistence is an optimisation, never a reason to
-            # abort the buyer scan. Keep scanning even during Firestore outages
-            # or client-library regressions.
             print(f"DYNAMIC_TELEGRAM_SAVE_ERROR count={count} by={discovered_by} {exc}")
 
 
@@ -124,7 +121,240 @@ EDUCATION_SERVICE_PATTERNS = [
     r"limited slots",
     r"upcoming semester",
     r"begin your application",
+    r"apply (?:now|today)",
+    r"partner universities",
+    r"\b(?:ciu|rauf|bau|fiu|gau|emu)\b",
+    r"\bsnc\s*study\b",
+    r"@snc[_ ]?comm\b",
+    r"€\s*100\s*cashback",
+    r"starting from just\s*\$?\s*\d",
+    r"affordable university",
+    r"student permit",
+    r"international education",
+    r"pay (?:per|by) semester",
 ]
 
-# Preserve the remainder of the existing module behavior below.
-" + "
+VEHICLE_SERVICE_PATTERNS = [
+    r"own a car in north cyprus",
+    r"without paying the full amount upfront",
+    r"flexible installment plans",
+    r"flexible monthly installments",
+    r"wide range of cars",
+    r"simple application process",
+    r"find your next car",
+    r"vehicle financing",
+    r"car financing",
+    r"cars? on installments?",
+    r"vehicle[s]? on installments?",
+    r"spread your payments over time",
+    r"payment plan that suits your budget",
+    r"suitable for students, workers, and residents",
+]
+
+DELIVERY_SERVICE_PATTERNS = [
+    r"доставка.*северн\w* кипр",
+    r"москва\s*[-–—]\s*северн\w* кипр",
+    r"отправ(?:ить|ляйте).*посылк",
+    r"получ(?:айте|ить).*посылк.*остров",
+    r"\bсдэк\b",
+    r"\bтарифы\b",
+    r"заказать доставку",
+    r"пункт.*москв",
+    r"выдача.*(?:гирне|искеле)",
+    r"дедлайн получения",
+    r"каждый следующий.*кг",
+    r"индивидуальный расч[её]т",
+]
+
+
+def _promotional_or_transfer_service_ad(text):
+    if _original_promotional_service_ad(text):
+        return True
+
+    direct_transfer = re.search(
+        r"услуги трансфера|airport transfer|transfer service|трансфер до места проживания",
+        text,
+        re.I,
+    )
+    if direct_transfer:
+        return True
+    transfer_hits = sum(1 for pattern in TRANSFER_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    transfer_commercial_hits = sum(
+        1
+        for pattern in (
+            r"\+?90\s*5\d{2}",
+            r"\bотличн(?:ые|ая) альтернативы по цене\b",
+            r"\b1\s*до\s*7 человек\b",
+            r"\bводитель\b",
+            r"\bаэропорт\b",
+        )
+        if re.search(pattern, text, re.I)
+    )
+    if transfer_hits >= 2 or (transfer_hits >= 1 and transfer_commercial_hits >= 2):
+        return True
+
+    if re.search(r"study in north cyprus|university admission|up to 100% scholarship|snc\s*study|affordable university", text, re.I):
+        return True
+    education_hits = sum(1 for pattern in EDUCATION_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    if education_hits >= 2:
+        return True
+
+    if re.search(r"own a car in north cyprus|vehicle financing|car financing|wide range of cars", text, re.I):
+        return True
+    vehicle_hits = sum(1 for pattern in VEHICLE_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    vehicle_commercial_hits = sum(
+        1
+        for pattern in (
+            r"contact us today",
+            r"\+?90\s*5\d{2}",
+            r"dm\s+@\w+",
+            r"searchnorthcyprus\.org",
+            r"monthly installments",
+            r"application process",
+        )
+        if re.search(pattern, text, re.I)
+    )
+    if vehicle_hits >= 2 or (vehicle_hits >= 1 and vehicle_commercial_hits >= 2):
+        return True
+
+    if re.search(r"доставка.*северн\w* кипр|заказать доставку|отправ(?:ить|ляйте).*посылк", text, re.I):
+        return True
+    delivery_hits = sum(1 for pattern in DELIVERY_SERVICE_PATTERNS if re.search(pattern, text, re.I))
+    return delivery_hits >= 2
+
+
+north_cyprus_focus._promotional_service_ad = _promotional_or_transfer_service_ad
+
+if not any(x.get("name") == "Kibkom North Cyprus Latest" for x in shard_runner.DIRECT_INDEX_SOURCES):
+    shard_runner.DIRECT_INDEX_SOURCES.append({
+        "name": "Kibkom North Cyprus Latest",
+        "url": "https://kibkomnorthcyprusforum.com/",
+        "domain": "kibkomnorthcyprusforum.com",
+        "market": "north_cyprus",
+        "include_path": ["viewtopic.php"],
+        "max_links": 30,
+    })
+
+if not any(x.get("name") == "AWD North Cyprus Forum" for x in shard_runner.DIRECT_INDEX_SOURCES):
+    shard_runner.DIRECT_INDEX_SOURCES.append({
+        "name": "AWD North Cyprus Forum",
+        "url": "https://forum.awd.ru/viewforum.php?f=1683",
+        "domain": "forum.awd.ru",
+        "market": "north_cyprus",
+        "include_path": ["viewtopic.php"],
+        "max_links": 30,
+    })
+
+shard_runner.SHARDS["north_cyprus_hunter"] = {
+    "index_names": {
+        "Expat.com North Cyprus",
+        "Kibkom North Cyprus Latest",
+        "AWD North Cyprus Forum",
+    },
+    "topic_names": set(),
+    "telegram": {
+        "cyprusy",
+        "searchnorthcyprus",
+        "snchubTalkroom",
+        "meetinnorthcyprus",
+        "northcyprus29",
+        "searchgirne",
+        "lefkosasearch",
+        "iskelesearch",
+        "famagustasearchsnc",
+        "cyprusposter",
+        "cyprusmedicine",
+        "nedvizhimost_kipr",
+    } | _dynamic_channels,
+    "catalogs": {"TeleGid Cyprus", "SNC Community Hub"},
+    "member": True,
+    "exa_calls": 1,
+    "exa_query": (
+        "past 7 days genuine person asking about buying, finding, pricing or choosing a home, apartment, studio, "
+        "villa, land or investment property in North Cyprus, Northern Cyprus or TRNC; include Iskele, Long Beach, "
+        "Kyrenia, Girne, Esentepe, Famagusta, Gazimagusa, Lapta, Tatlisu, Bahceli, Bafra, Alsancak, Karsiyaka, "
+        "Catalkoy, Bellapais and Yenibogazici. Explicitly include buyer discussions mentioning Isatis, Isatis Construction, "
+        "Elysium, Elysium 2, Isatis Hillside, Isatis Infinity, Fiora or Isatis Orchard, including resale, owner sale, "
+        "availability, price, studio, 1+1, 2+1, villa, payment plan, deposit and title deed questions. Include short buyer "
+        "questions such as 1+1, 2+1, 3+1, studio wanted, what can I get for a budget, how much is an apartment, which "
+        "area is best, Iskele or Girne, which project or developer is reliable, title deed/kocan, lawyer, mortgage, deposit, "
+        "down payment, installment/payment plan, viewing, offer, off-plan versus resale, ready property, relocation, "
+        "retirement or second home. Search English, Turkish, Russian, German, French, Dutch and Persian wording including "
+        "ev ariyorum, daire ariyorum, var mi, ne kadar, hangi bolge, butce, pesinat, taksit, хочу купить, ищу квартиру, "
+        "что можно купить, сколько стоит, какой район лучше, рассрочка. Prioritize recent user posts/comments in "
+        "r/NorthCyprus, r/cyprus, r/expats, r/Investors, r/realestateinvesting, expat forums, Facebook groups and Telegram "
+        "communities. Exclude agents, brokers, developers, listings, advertising, transfer services, education/admission "
+        "agencies, scholarship promotions, car dealers, vehicle-finance/installment promotions, parcel/cargo delivery "
+        "services, rental-only requests, guides and news."
+    ),
+    "exa_domains": [
+        "reddit.com",
+        "expat.com",
+        "expatforum.com",
+        "kibkomnorthcyprusforum.com",
+        "forum.awd.ru",
+        "britishexpats.com",
+        "tripadvisor.com",
+        "facebook.com",
+        "t.me",
+        "turkishliving.com",
+    ],
+    "reddit_focus": ["NorthCyprus", "cyprus", "expats", "ExpatFIRE", "AmerExit"],
+}
+
+_original_discover = source_crawler_v2.discover_public_telegram_channels
+
+
+def discover_and_persist(catalog_names=None):
+    channels = _original_discover(catalog_names)
+    _persist_channels(channels, "catalog")
+    return channels
+
+
+source_crawler_v2.discover_public_telegram_channels = discover_and_persist
+
+main.keep_candidate = north_cyprus_focus.keep_candidate
+main.buyer_scores = north_cyprus_focus.buyer_scores
+
+_original_market_for = main.market_for
+_original_notify = main.notify_telegram
+_original_mark_notified = shard_runner.mark_notified
+_CAPTURED_NEW_LEADS = []
+
+
+def north_cyprus_market_for(text, bucket_name="", url="", title=""):
+    market = _original_market_for(text, bucket_name, url, title)
+    return "north_cyprus" if market == "unknown" else market
+
+
+def mark_and_capture(db, lead_key, lead):
+    _original_mark_notified(db, lead_key, lead)
+    _CAPTURED_NEW_LEADS.append(lead)
+
+
+def hunter_notify(default_message):
+    if not _CAPTURED_NEW_LEADS:
+        _original_notify(default_message)
+        return
+
+    lines = [f"🔥 BAY-S NORTH CYPRUS HUNTER | {len(_CAPTURED_NEW_LEADS)} YENİ LEAD"]
+    for lead in _CAPTURED_NEW_LEADS[:8]:
+        author = lead.get("author", "") or "kullanıcı"
+        place = lead.get("telegram_chat", "") or lead.get("title", "") or lead.get("source", "")
+        excerpt = " ".join(str(lead.get("text", "")).split())[:260]
+        lines.append(
+            f"\n{lead.get('classification','WARM')} | {author} | {place[:80]}\n"
+            f"I{lead.get('intent_score',0)} C{lead.get('credibility_score',0)} F{lead.get('market_fit_score',0)}\n"
+            f"{excerpt}\n{lead.get('url','')}"
+        )
+    _original_notify("\n".join(lines))
+
+
+main.market_for = north_cyprus_market_for
+main.notify_telegram = hunter_notify
+shard_runner.mark_notified = mark_and_capture
+
+if __name__ == "__main__":
+    os.environ["WORLD_RADAR_SHARD"] = "north_cyprus_hunter"
+    shard_runner.SHARD = "north_cyprus_hunter"
+    shard_runner.run()
