@@ -70,6 +70,7 @@ jobs:
           python - <<'PY'
           import os, requests
           token=os.getenv('TELEGRAM_BOT_TOKEN','').strip(); chat=os.getenv('TELEGRAM_CHAT_ID','').strip()
+          run_url=f"{os.getenv('GITHUB_SERVER_URL','https://github.com')}/{os.getenv('GITHUB_REPOSITORY','')}/actions/runs/{os.getenv('GITHUB_RUN_ID','')}"
           if token and chat:
-              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':'⚠️ BAY-S YOUTUBE RADAR failed. Check GitHub Actions.'},timeout=15)
+              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':f'⚠️ BAY-S YOUTUBE RADAR failed.\n{run_url}'},timeout=15)
           PY
