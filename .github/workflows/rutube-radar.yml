@@ -34,7 +34,22 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python rutube_radar.py
+        run: |
+          python - <<'PY'
+          import rutube_radar
+          try:
+              rutube_radar.run()
+          except Exception as exc:
+              # RuTube uses unofficial/best-effort endpoints. Losing this source must
+              # not make the wider Radar look unhealthy or interrupt other lanes.
+              print("RUTUBE_BEST_EFFORT_DEGRADED", repr(exc))
+              try:
+                  rutube_radar.main.notify_telegram(
+                      "⚠️ BAY-S RUTUBE kaynağı bu tur kullanılamadı. Best-effort kaynak atlandı; diğer Radar'lar normal devam ediyor."
+                  )
+              except Exception:
+                  pass
+          PY
       - name: Notify failure
         if: failure()
         env:
@@ -44,6 +59,7 @@ jobs:
           python - <<'PY'
           import os, requests
           token=os.getenv('TELEGRAM_BOT_TOKEN','').strip(); chat=os.getenv('TELEGRAM_CHAT_ID','').strip()
+          run_url=f"{os.getenv('GITHUB_SERVER_URL','https://github.com')}/{os.getenv('GITHUB_REPOSITORY','')}/actions/runs/{os.getenv('GITHUB_RUN_ID','')}"
           if token and chat:
-              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':'⚠️ BAY-S RUTUBE RADAR failed. Best-effort source may have rate-limited; other radars continue.'},timeout=15)
+              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':f'⚠️ BAY-S RUTUBE RADAR infrastructure failure.\n{run_url}'},timeout=15)
           PY
