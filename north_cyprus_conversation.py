@@ -62,18 +62,23 @@ def _cluster_to_items(cluster, max_parts):
         parts = []
         text_parts = []
         reply_parts = []
+        seen_texts = set()
         for dt, item in chunk:
             body = " ".join(str(item.get("text", "")).split())
-            if body:
+            body_key = body.casefold()
+            if body and body_key not in seen_texts:
+                seen_texts.add(body_key)
                 text_parts.append(body)
+                parts.append({
+                    "url": item.get("url", ""),
+                    "published": dt.isoformat(),
+                    "text": body[:700],
+                })
             reply = " ".join(str(item.get("reply_context", "")).split())
             if reply and reply not in reply_parts:
                 reply_parts.append(reply)
-            parts.append({
-                "url": item.get("url", ""),
-                "published": dt.isoformat(),
-                "text": body[:700],
-            })
+        # Two copies of the same message are not a conversation. This prevents
+        # collector duplicates from creating a synthetic stitched lead.
         if len(text_parts) < 2:
             continue
         synthetic = dict(latest)
