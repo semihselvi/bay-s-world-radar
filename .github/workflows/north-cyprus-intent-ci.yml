@@ -1,0 +1,31 @@
+name: BAY-S NC Intent CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "north_cyprus_intent_classifier.py"
+      - "north_cyprus_publisher_classifier.py"
+      - "north_cyprus_semantic_dedupe.py"
+      - "north_cyprus_intent_routing.py"
+      - "north_cyprus_notification_dedupe.py"
+      - "north_cyprus_catcher_expanded.py"
+      - "north_cyprus_recovery.py"
+      - "north_cyprus_intent_selftest.py"
+      - ".github/workflows/north-cyprus-intent-ci.yml"
+
+jobs:
+  intent-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Syntax check intent stack
+        run: |
+          python -m py_compile north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_selftest.py
+      - name: Intent regression self-test
+        run: python north_cyprus_intent_selftest.py
