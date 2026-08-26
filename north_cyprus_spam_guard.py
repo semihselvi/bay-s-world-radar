@@ -185,6 +185,53 @@ FOREIGN_PROPERTY_PROMO_PATTERNS = [
     r"\bmuscat\b.*\b(?:property|project|off[- ]plan|ownership|installment)\b",
 ]
 
+# Pet adoption/foster posts frequently use Russian phrases such as "ищут дом".
+# That wording must never be treated as a house-search signal when it appears
+# together with veterinary/foster/animal-care context.
+PET_ADOPTION_PATTERNS = [
+    r"\bищ(?:ет|ут)\s+(?:новый\s+)?дом\b",
+    r"\bпередержк\w*\b",
+    r"\bветеринар\w*\b",
+    r"\bглист\w*\b",
+    r"\bблох\w*\b",
+    r"\b(?:найден|найдены|нашли)\b.*\bна\s+улиц\w*\b",
+    r"\b(?:щенок|щенки|котенок|котята|собак\w*|кошк\w*)\b",
+    r"\b(?:приют|сахиплендир|sahiplendir|yuva arıyor|geçici yuva|veteriner|iç dış parazit)\b",
+    r"\b(?:adopt(?:ion)?|foster|forever home|veterinar(?:y|ian)|dewormed|fleas?|pupp(?:y|ies)|kittens?)\b",
+]
+
+# Retail parcel/cargo delivery advertisements can mention cities, prices and
+# "home" products, which otherwise look concrete enough for buyer scoring.
+# Require a delivery action plus retail/logistics context; do not reject a normal
+# property discussion that only says "delivery date".
+DELIVERY_SERVICE_PATTERNS = [
+    r"\bдоставк\w*\s+до\s+(?:вашего|твоего)?\s*город\w*\b",
+    r"\bмогу\s+достав(?:ить|лять)\b",
+    r"\b(?:temu|shein|zara|amazon|bestsecret)\b",
+    r"\bonline\s+stores?\b",
+    r"\bдо\s+\d+(?:[.,]\d+)?\s*кг\b",
+    r"\b(?:посылк\w*|курьер\w*|cargo|parcel|courier)\b",
+    r"\b(?:kargo|kurye|paket teslimat|alışveriş teslimat)\b",
+]
+
+# Requests for a stranger with a European/foreign bank account to receive or
+# transfer funds are financial intermediary requests, not property buyer leads.
+# Require an account signal plus transfer/reward/help language so genuine buyer
+# questions about paying for property from abroad are not suppressed.
+FINANCIAL_INTERMEDIARY_PATTERNS = [
+    r"\b(?:европейск|зарубежн|иностранн)\w*\s+(?:банк\w*\s+)?счет\w*\b",
+    r"\bищу\s+человек\w*\b.*\bсчет\w*\b",
+    r"\bготов\w*\s+помочь\s+с\s+(?:зарубежн|европейск|иностранн)\w*\s+счет\w*\b",
+    r"\bпереведу\s+всю\s+сумм\w*\b",
+    r"\bперевести\s+всю\s+сумм\w*\b",
+    r"\bудобн\w*\s+способ\w*\b",
+    r"\bотблагодар\w*\b",
+    r"\b(?:european|foreign|overseas)\s+(?:bank\s+)?account\b",
+    r"\b(?:send|transfer)\s+the\s+(?:full|whole)\s+amount\b",
+    r"\b(?:avrupa|yurt dışı|yurtdışı)\s+(?:banka\s+)?hesab\w*\b",
+    r"\b(?:tüm|bütün)\s+(?:tutarı|parayı)\s+(?:hemen\s+)?(?:gönder|aktar)\w*\b",
+]
+
 
 def promotional_service_or_recruitment_ad(text):
     if _original_promotional_service_ad(text):
@@ -193,6 +240,48 @@ def promotional_service_or_recruitment_ad(text):
     # Group administration / permission changes are hard rejects even if a
     # stitched/replied context elsewhere contains property words.
     if any(re.search(pattern, text, re.I | re.S) for pattern in MODERATION_NOTICE_PATTERNS):
+        return True
+
+    # Pet/foster posts can say "ищут дом" (looking for a home). Only reject when
+    # the home wording appears with multiple animal-care/adoption signals.
+    pet_hits = sum(1 for pattern in PET_ADOPTION_PATTERNS if re.search(pattern, text, re.I | re.S))
+    if pet_hits >= 2 and re.search(
+        r"\b(?:ищ(?:ет|ут)\s+(?:новый\s+)?дом|передержк\w*|ветеринар\w*|щенок|щенки|котенок|котята|adopt(?:ion)?|foster|yuva arıyor|sahiplendir)\b",
+        text,
+        re.I | re.S,
+    ):
+        return True
+
+    # Parcel/cargo ads: direct delivery language plus retail brand/logistics
+    # context. A standalone property "delivery date" is intentionally allowed.
+    delivery_hits = sum(1 for pattern in DELIVERY_SERVICE_PATTERNS if re.search(pattern, text, re.I | re.S))
+    retail_or_cargo = re.search(
+        r"\b(?:temu|shein|zara|amazon|bestsecret|online\s+stores?|посылк\w*|курьер\w*|cargo|parcel|courier|kargo|kurye)\b",
+        text,
+        re.I | re.S,
+    )
+    delivery_action = re.search(
+        r"\b(?:доставк\w*\s+до|могу\s+достав(?:ить|лять)|до\s+\d+(?:[.,]\d+)?\s*кг|deliver\w*|kargo|kurye|paket teslimat|alışveriş teslimat)\b",
+        text,
+        re.I | re.S,
+    )
+    if delivery_hits >= 2 and retail_or_cargo and delivery_action:
+        return True
+
+    # Financial/payment intermediary template. This catches repeated account-
+    # transfer requests even when different Telegram accounts post the template.
+    financial_hits = sum(1 for pattern in FINANCIAL_INTERMEDIARY_PATTERNS if re.search(pattern, text, re.I | re.S))
+    account_signal = re.search(
+        r"\b(?:(?:европейск|зарубежн|иностранн)\w*\s+(?:банк\w*\s+)?счет\w*|(?:european|foreign|overseas)\s+(?:bank\s+)?account|(?:avrupa|yurt dışı|yurtdışı)\s+(?:banka\s+)?hesab\w*)\b",
+        text,
+        re.I | re.S,
+    )
+    transfer_or_reward = re.search(
+        r"\b(?:переведу\s+всю\s+сумм\w*|отблагодар\w*|(?:send|transfer)\s+the\s+(?:full|whole)\s+amount|(?:tüm|bütün)\s+(?:tutarı|parayı)\s+(?:hemen\s+)?(?:gönder|aktar)\w*)\b",
+        text,
+        re.I | re.S,
+    )
+    if account_signal and transfer_or_reward and financial_hits >= 2:
         return True
 
     # Clear recruitment copy is never a buyer lead even when it contains
