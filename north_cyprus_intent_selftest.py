@@ -3,6 +3,7 @@ from north_cyprus_publisher_classifier import annotate_publisher_types
 from north_cyprus_semantic_dedupe import semantic_dedupe_items, consolidate_buyer_leads
 
 
+# Human-reviewed Catcher false positives and real leads are kept here as regressions.
 def _item(text, author="@test", uid="", chat="СЕВЕРНЫЙ КИПР | ФОРУМ", **extra):
     row = {"text": text, "author": author, "telegram_user_id": uid, "telegram_chat": chat, "url": extra.pop("url", "https://example.test/x"), "published": extra.pop("published", "2026-08-26T10:00:00+00:00")}
     row.update(extra)
