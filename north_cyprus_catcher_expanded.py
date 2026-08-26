@@ -1,4 +1,7 @@
-from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from datetime import datetime, timezone, timedelta
 
 import north_cyprus_catcher as base
 import north_cyprus_focus as nf
@@ -10,6 +13,10 @@ import telegram_global_search as tgs
 
 from north_cyprus_author_reputation import annotate_author_reputation
 from north_cyprus_cross_group import stitch_cross_group_identity
+from north_cyprus_intent_classifier import classify_intent, is_buyer_catcher_eligible, display_intent
+from north_cyprus_intent_routing import route_supply_candidate
+from north_cyprus_publisher_classifier import annotate_publisher_types
+from north_cyprus_semantic_dedupe import semantic_dedupe_items, consolidate_buyer_leads
 import north_cyprus_notification_dedupe  # patches base notification dedupe by person+text
 from north_cyprus_open_web_plus import OPEN_WEB_ALLOWED_DOMAINS, collect_open_web
 from north_cyprus_source_performance import observe as observe_source
@@ -76,11 +83,68 @@ _original_collect_global=base.collect_global_telegram
 _original_classify=base._classify
 
 
-def _classify_and_learn(item, cutoff):
-    if item.get("suspected_agent"):
-        lead, reason = None, "agent_history"
+def _decorate_intent(item, intent):
+    item["intent_class"] = intent.get("intent_class", "UNKNOWN")
+    item["intent_subtypes"] = list(intent.get("intent_subtypes") or [])
+    item["intent_confidence"] = int(intent.get("intent_confidence") or 0)
+    item["intent_reasons"] = list(intent.get("intent_reasons") or [])
+    item["requirements"] = dict(intent.get("requirements") or {})
+    item["intent_display"] = display_intent(intent)
+    return item
+
+
+def _direct_tenant_lead(item, intent, cutoff):
+    if not item.get("url") or not nf._allowed_source(item):
+        return None, "non_user_source"
+    published = base.world_engine.resolved_published(item)
+    if published is None:
+        return None, "date_unverified"
+    if published < cutoff:
+        return None, "older_than_window"
+    confidence = int(intent.get("intent_confidence") or 0)
+    subtypes = list(intent.get("intent_subtypes") or [])
+    if "SHARED_RENTAL" in subtypes:
+        label = "WARM"
     else:
+        label = "HOT" if confidence >= 82 else "WARM"
+    credibility = min(92, 68 + (8 if item.get("author") else 0) + (5 if item.get("telegram_user_id") else 0) + (4 if item.get("reply_context") else 0))
+    lead = _decorate_intent(dict(item), intent)
+    lead.update({
+        "classification": label,
+        "intent_score": confidence,
+        "credibility_score": credibility,
+        "market_fit_score": 96,
+        "market": "north_cyprus",
+        "scanned_at": base.main.now_utc().isoformat(),
+        "catcher_reason": "direction_first_tenant",
+    })
+    return lead, "accepted_tenant_intent"
+
+
+def _classify_and_learn(item, cutoff):
+    intent = classify_intent(item)
+    _decorate_intent(item, intent)
+    intent_class = intent.get("intent_class")
+
+    if intent_class in {"OWNER", "AGENT"}:
+        route_supply_candidate(item, intent)
+        lead, reason = None, "routed_" + intent_class.lower()
+    elif intent_class in {"SERVICE", "FINANCIAL", "SPAM", "UNKNOWN"}:
+        lead, reason = None, "intent_" + str(intent_class).lower()
+    elif intent_class == "TENANT":
+        lead, reason = _direct_tenant_lead(item, intent, cutoff)
+    elif intent_class == "BUYER":
         lead, reason = _original_classify(item, cutoff)
+        if lead:
+            _decorate_intent(lead, intent)
+            # Buyer Catcher final output no longer exposes POTENTIAL. A direction-
+            # verified buyer that only reached the old rescue lane becomes WARM.
+            if lead.get("classification") == "POTENTIAL":
+                lead["classification"] = "WARM"
+                lead["intent_score"] = max(int(lead.get("intent_score") or 0), int(intent.get("intent_confidence") or 0))
+    else:
+        lead, reason = None, "intent_unknown"
+
     observe_source(item, lead, reason)
     observe_query(item, lead, reason)
     return lead, reason
@@ -105,22 +169,102 @@ def expanded_collect_global():
             key=item.get("url") or base.main.dedupe_key(item)
             unique[key]=item
 
-    collected=list(unique.values())
-    # First determine seller/agent personas on the raw person-level messages.
+    collected=semantic_dedupe_items(list(unique.values()))
+    # Same ad reposted across groups is collapsed before publisher analysis so a
+    # genuine single-property owner is not mistaken for an agent just for reposting.
     annotate_author_reputation(collected)
+    annotate_publisher_types(collected)
 
-    # Then combine the same stable Telegram user across different groups. This
-    # creates a synthetic buyer profile only when multiple groups contribute a
-    # real buyer/request/property signal. Repeated demand across groups is marked
-    # explicitly and can naturally score HOT through the existing buyer scorer.
     cross_profiles=stitch_cross_group_identity(collected,max_gap_hours=72,max_parts=8)
     collected.extend(cross_profiles)
 
-    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"cross_group_profiles",len(cross_profiles),"unique",len(collected))
+    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"cross_group_profiles",len(cross_profiles),"semantic_unique",len(collected))
     return collected
 
 
 base.collect_global_telegram=expanded_collect_global
 
+
+def _format_requirements(lead):
+    req = lead.get("requirements") or {}
+    bits = []
+    regions = req.get("regions") or []
+    if regions:
+        bits.append("Bölge: " + ", ".join(regions[:3]))
+    if req.get("property_type"):
+        bits.append("Mülk: " + str(req.get("property_type")))
+    if req.get("budget"):
+        bits.append("Bütçe: " + str(req.get("budget")))
+    if req.get("move_window"):
+        bits.append("Tarih: " + str(req.get("move_window")))
+    prefs = req.get("preferences") or []
+    if prefs:
+        bits.append("Tercih: " + ", ".join(prefs[:5]))
+    return " | ".join(bits)
+
+
+def run():
+    started=base.main.now_utc(); lookback_hours=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); cutoff=started-timedelta(hours=lookback_hours)
+    global_items=base.collect_global_telegram(); forum_items=base.collect_forum_replies(cutoff)
+    originals=global_items+forum_items
+    stitched=base.stitch_conversations(originals,max_gap_hours=int(os.getenv("NC_STITCH_GAP_HOURS","6")))
+    raw_items=semantic_dedupe_items(originals+stitched)
+
+    stats={}; accepted=[]; seen=set()
+    for item in raw_items:
+        key=item.get("url") or base.main.dedupe_key(item)
+        identity_hint=str(item.get("telegram_user_id") or item.get("author") or "")
+        key=f"{identity_hint}|{key}" if item.get("conversation_stitched") else key
+        if key in seen: continue
+        seen.add(key)
+        lead,reason=base._classify(item,cutoff)
+        stats[reason]=stats.get(reason,0)+1
+        if lead and lead.get("intent_class") in {"BUYER","TENANT"}:
+            accepted.append(lead)
+
+    # Stitched/cross-group evidence now enriches one canonical person row instead
+    # of producing additional Buyer Catcher notifications.
+    accepted=consolidate_buyer_leads(accepted)
+    rank={"HOT":3,"WARM":2}
+    accepted.sort(key=lambda x:(rank.get(x.get("classification"),0),int(x.get("intent_confidence") or x.get("intent_score") or 0),int(x.get("credibility_score") or 0)),reverse=True)
+
+    db=base.main.firestore_client(); new_leads=[]
+    for lead in accepted:
+        if base._notified_before(db,lead):
+            continue
+        new_leads.append(lead)
+        base._mark_notified(db,lead)
+
+    scan_id=f"{started.strftime('%Y%m%d%H%M%S')}_nc_catcher"
+    if db:
+        try:
+            ref=db.collection(base.SCAN_COLLECTION).document(scan_id); batch=db.batch()
+            for lead in accepted[:100]:
+                ident=lead.get("canonical_identity") or lead.get("url") or lead.get("title","")
+                doc_id=hashlib.sha1(str(ident).encode("utf-8")).hexdigest(); batch.set(ref.collection("leads").document(doc_id),lead,merge=True)
+            batch.set(ref,{"started_at":started.isoformat(),"finished_at":base.main.now_utc().isoformat(),"lookback_hours":lookback_hours,"telegram_global_messages":len(global_items),"forum_recent_posts":len(forum_items),"conversation_stitches":len(stitched),"semantic_candidates":len(raw_items),"accepted_people":len(accepted),"new_to_notify":len(new_leads),"filter_stats":stats},merge=True); batch.commit()
+        except Exception as exc: print("NC_CATCHER_FIRESTORE_ERROR",exc)
+
+    print("NC_CATCHER_COMPLETE",json.dumps({"lookback_hours":lookback_hours,"telegram_global":len(global_items),"forum_posts":len(forum_items),"conversation_stitches":len(stitched),"semantic_candidates":len(raw_items),"accepted_people":len(accepted),"new":len(new_leads),"stats":stats},ensure_ascii=False))
+
+    if new_leads:
+        lines=[f"🎯 BAY-S NC BUYER CATCHER | {len(new_leads)} GERÇEK ADAY"]
+        for lead in new_leads[:12]:
+            author=lead.get("author") or "kullanıcı"; place=lead.get("telegram_chat") or lead.get("title") or lead.get("source") or ""
+            excerpt=" ".join(str(lead.get("text","")).split())[:260]
+            intent_label=display_intent(lead)
+            req_line=_format_requirements(lead)
+            confidence=int(lead.get("intent_confidence") or lead.get("intent_score") or 0)
+            evidence=int(lead.get("evidence_count") or 1)
+            header=f"{lead.get('classification','WARM')} | {author} | {intent_label}"
+            details=f"Intent {confidence}% | Kanıt {evidence} | {place[:70]}"
+            if req_line:
+                details += "\n" + req_line
+            lines.append(f"\n{header}\n{details}\n{excerpt}\n{lead.get('url','')}")
+        base.main.notify_telegram("\n".join(lines))
+    else:
+        base.main.notify_telegram(f"🎯 BAY-S NC BUYER CATCHER tamamlandı.\nYeni gerçek BUYER/TENANT yok.\nGlobal/çoklu kaynak: {len(global_items)}\nForum yeni post: {len(forum_items)}\nStitch kanıtı: {len(stitched)}\nSemantic aday: {len(raw_items)} | Son {lookback_hours} saat")
+
+
 if __name__=="__main__":
-    base.run()
+    run()
