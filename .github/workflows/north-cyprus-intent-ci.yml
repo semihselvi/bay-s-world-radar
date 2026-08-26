@@ -15,6 +15,13 @@ on:
       - "north_cyprus_intent_selftest.py"
       - ".github/workflows/north-cyprus-intent-ci.yml"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: bay-s-nc-intent-ci
+  cancel-in-progress: true
+
 jobs:
   intent-ci:
     runs-on: ubuntu-latest
