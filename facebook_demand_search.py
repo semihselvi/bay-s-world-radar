@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import time
 from typing import Any
@@ -59,7 +60,6 @@ def _group_segment(group_url: str) -> str:
 
 
 def _canonical_direct_post_url(url: str, group_url: str, depth: int = 0) -> str:
-    """Convert Facebook post/search/redirect link variants into a stable direct group-post URL."""
     if not url or depth > 2:
         return ""
     try:
@@ -69,31 +69,25 @@ def _canonical_direct_post_url(url: str, group_url: str, depth: int = 0) -> str:
         group_id = _group_segment(group_url)
         path = parts.path
         query = parse_qs(parts.query)
-
         post_match = re.search(r"/groups/([^/?#]+)/(?:posts|permalink)/(\d+)", path, re.I)
         if post_match:
             return f"https://www.facebook.com/groups/{post_match.group(1)}/posts/{post_match.group(2)}/"
-
         for key in ("multi_permalinks", "story_fbid", "post_id"):
             value = (query.get(key) or [""])[0]
             if group_id and str(value).isdigit():
                 return f"https://www.facebook.com/groups/{group_id}/posts/{value}/"
-
-        # Facebook sometimes wraps the real destination in redirect query params.
         for key in ("u", "href", "next", "redirect"):
             nested = (query.get(key) or [""])[0]
             if nested:
                 direct = _canonical_direct_post_url(str(nested), group_url, depth + 1)
                 if direct:
                     return direct
-
         return ""
     except Exception:
         return ""
 
 
 def _effective_post_key(post: dict[str, Any]) -> str:
-    """Never dedupe multiple posts just because Facebook gave us a search/group fallback URL."""
     group_url = base._canonical_group_url(str(post.get("group_url") or ""))
     direct = _canonical_direct_post_url(str(post.get("url") or ""), group_url)
     if direct:
@@ -109,18 +103,15 @@ def _extract_phone(text: str) -> str:
 
 
 def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -> str:
-    """Locate a visible search-result card matching the post and recover its direct permalink/post id."""
     group_url = base._canonical_group_url(str(group.get("url") or ""))
     group_id = _group_segment(group_url)
     current = _canonical_direct_post_url(str(post.get("url") or ""), group_url)
     if current:
         return current
-
     needle = base._clean_text(post.get("text"))
     if not needle:
         return ""
     needle = needle[:220]
-
     try:
         evidence = page.evaluate(
             """({needle}) => {
@@ -131,7 +122,6 @@ def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -
                 const msgSel = '[data-ad-rendering-role="story_message"], [data-ad-preview="message"], [data-ad-comet-preview="message"]';
                 const containers = [];
                 const seen = new Set();
-
                 const maybeAdd = (el) => {
                     if (!el || seen.has(el)) return;
                     const txt = norm(el.innerText || '');
@@ -142,7 +132,6 @@ def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -
                         containers.push(el);
                     }
                 };
-
                 document.querySelectorAll(msgSel).forEach((msg) => {
                     const txt = norm(msg.innerText || '');
                     const short = txt.slice(0, Math.min(100, txt.length));
@@ -150,20 +139,14 @@ def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -
                         maybeAdd(msg.closest('div[role="article"]') || msg.parentElement);
                     }
                 });
-
-                // Search-result layouts can omit the story-message marker. In that
-                // case match the enclosing article by text instead.
                 document.querySelectorAll('div[role="article"]').forEach(maybeAdd);
-
                 const hrefs = [];
                 const attrs = [];
                 for (const container of containers.slice(0, 4)) {
                     let el = container;
                     for (let i = 0; i < 7 && el; i++, el = el.parentElement) {
                         if (el.querySelectorAll) {
-                            for (const a of el.querySelectorAll('a[href]')) {
-                                if (a.href) hrefs.push(a.href);
-                            }
+                            for (const a of el.querySelectorAll('a[href]')) if (a.href) hrefs.push(a.href);
                             for (const node of el.querySelectorAll('[data-ft],[data-story-id],[data-id],[data-testid]')) {
                                 for (const name of ['data-ft','data-story-id','data-id','data-testid']) {
                                     const value = node.getAttribute(name);
@@ -177,23 +160,16 @@ def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -
                         }
                     }
                 }
-                return {
-                    hrefs: [...new Set(hrefs)].slice(0, 160),
-                    attrs: [...new Set(attrs)].slice(0, 160)
-                };
+                return {hrefs: [...new Set(hrefs)].slice(0,160), attrs: [...new Set(attrs)].slice(0,160)};
             }""",
             {"needle": needle},
         )
     except Exception:
         evidence = {"hrefs": [], "attrs": []}
-
     for href in (evidence or {}).get("hrefs", []) or []:
         direct = _canonical_direct_post_url(str(href), group_url)
         if direct:
             return direct
-
-    # Some Facebook layouts keep the post id in data-ft/data-story-id rather than
-    # in a visible anchor. Recover it conservatively only for numeric group ids.
     if group_id.isdigit():
         for value in (evidence or {}).get("attrs", []) or []:
             match = POST_ID_RE.search(str(value))
@@ -201,7 +177,6 @@ def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -
                 return f"https://www.facebook.com/groups/{group_id}/posts/{match.group(1)}/"
             if str(value).isdigit() and len(str(value)) >= 10:
                 return f"https://www.facebook.com/groups/{group_id}/posts/{value}/"
-
     return ""
 
 
@@ -218,38 +193,27 @@ def _classify(post: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | No
     confidence = int(intent.get("intent_confidence") or 0)
     if intent_class not in {"BUYER", "TENANT"} or confidence < 70:
         return intent, None
-
     credibility = base._credibility_score(intent, post)
     text = base._clean_text(post.get("text"))
     req = intent.get("requirements") or {}
     phone = _extract_phone(text)
     has_specific_requirement = bool(
-        req.get("regions")
-        or req.get("property_type")
-        or req.get("budget")
-        or req.get("move_window")
-        or ROOM_RE.search(text)
+        req.get("regions") or req.get("property_type") or req.get("budget")
+        or req.get("move_window") or ROOM_RE.search(text)
     )
-
-    # Operational HOT: a clear buyer/tenant demand with direct contact info and at
-    # least one concrete housing criterion deserves immediate attention, even when
-    # the linguistic classifier confidence is below the generic 85 threshold.
     operational_hot = bool(phone and has_specific_requirement and confidence >= 78 and credibility >= 65)
     label = "HOT" if operational_hot or (confidence >= 85 and credibility >= 70) else "WARM"
-
     lead = dict(post)
     lead.update(intent)
-    lead.update(
-        {
-            "classification": label,
-            "intent_score": confidence,
-            "credibility_score": credibility,
-            "market_fit_score": 95,
-            "display_intent": base.display_intent(intent),
-            "contact_phone": phone,
-            "operational_hot": operational_hot,
-        }
-    )
+    lead.update({
+        "classification": label,
+        "intent_score": confidence,
+        "credibility_score": credibility,
+        "market_fit_score": 95,
+        "display_intent": base.display_intent(intent),
+        "contact_phone": phone,
+        "operational_hot": operational_hot,
+    })
     return intent, lead
 
 
@@ -261,7 +225,6 @@ def _scan_search(page, group: dict[str, Any], query: str, max_posts: int = 15) -
     except Exception as exc:
         print(f"    navigation warning: {type(exc).__name__}")
     page.wait_for_timeout(3200)
-
     try:
         text = base._clean_text(page.locator("body").inner_text(timeout=2500)).casefold()
     except Exception:
@@ -274,7 +237,6 @@ def _scan_search(page, group: dict[str, Any], query: str, max_posts: int = 15) -
     if any(x in text for x in unavailable):
         print("    inaccessible")
         return []
-
     collected: dict[str, dict[str, Any]] = {}
     for round_no in range(3):
         batch = v2._collect_posts_v2(page, group, max_posts)
@@ -282,19 +244,14 @@ def _scan_search(page, group: dict[str, Any], query: str, max_posts: int = 15) -
             post = dict(raw_post)
             post["search_query"] = query
             post["search_url"] = search_url
-
             direct = _resolve_post_permalink(page, post, group)
             if direct:
                 post["url"] = direct
                 post["link_quality"] = "DIRECT"
             else:
-                # Never send the group homepage as the lead link. A filtered search
-                # page is a much better manual fallback until a direct permalink is available.
                 post["url"] = search_url
                 post["link_quality"] = "SEARCH_FALLBACK"
-
-            key = _effective_post_key(post)
-            collected[key] = post
+            collected[_effective_post_key(post)] = post
             if len(collected) >= max_posts:
                 break
         print(f"    round {round_no + 1}/3 - candidates: {len(batch)} - unique posts: {len(collected)}")
@@ -311,20 +268,20 @@ def main() -> int:
     if not groups:
         print("No groups have demand_search=true in facebook_groups.json")
         return 0
-
     settings = config.get("settings", {})
     max_age = float(settings.get("max_age_hours", 72))
+    retest_mode = os.getenv("FACEBOOK_DEMAND_RETEST", "").strip() == "1"
+    if retest_mode:
+        print("RETEST MODE: seen-cache ignored and Telegram notifications disabled.")
     debug_rows: list[dict[str, Any]] = []
     leads_by_key: dict[str, dict[str, Any]] = {}
-    seen = _load_seen()
+    seen = {} if retest_mode else _load_seen()
     now = time.time()
-
     with sync_playwright() as playwright:
         context = base._launch_context(playwright, headless=False)
         try:
             page = context.pages[0] if context.pages else context.new_page()
             base.ensure_facebook_login(page)
-
             print(f"Targeted demand search | groups={len(groups)} | queries={len(SEARCH_QUERIES)}")
             for group in groups:
                 print(f"\nSearching group: {group.get('name','Facebook Group')}")
@@ -332,7 +289,6 @@ def main() -> int:
                 for query in SEARCH_QUERIES:
                     for post in _scan_search(page, group, query):
                         group_posts[_effective_post_key(post)] = post
-
                 print(f"  Unique search-result posts: {len(group_posts)}")
                 for post in group_posts.values():
                     intent, lead = _classify(post)
@@ -341,7 +297,6 @@ def main() -> int:
                     row["debug_confidence"] = int(intent.get("intent_confidence") or 0)
                     row["debug_requirements"] = intent.get("requirements") or {}
                     debug_rows.append(row)
-
                     age = post.get("age_hours")
                     if age is not None and age > max_age:
                         continue
@@ -351,44 +306,32 @@ def main() -> int:
                     if lead_key in seen:
                         continue
                     leads_by_key[lead_key] = lead
-
         finally:
             context.close()
-
     leads = list(leads_by_key.values())
-    leads.sort(
-        key=lambda x: (
-            x.get("classification") == "HOT",
-            int(x.get("intent_score") or 0),
-            int(x.get("credibility_score") or 0),
-        ),
-        reverse=True,
-    )
-
-    for lead in leads:
-        seen[_effective_post_key(lead)] = now
-    _save_seen(seen)
-
+    leads.sort(key=lambda x: (
+        x.get("classification") == "HOT",
+        int(x.get("intent_score") or 0),
+        int(x.get("credibility_score") or 0),
+    ), reverse=True)
+    if not retest_mode:
+        for lead in leads:
+            seen[_effective_post_key(lead)] = now
+        _save_seen(seen)
     OUTPUT_PATH.write_text(json.dumps(leads, ensure_ascii=False, indent=2), encoding="utf-8")
     DEBUG_PATH.write_text(json.dumps(debug_rows, ensure_ascii=False, indent=2), encoding="utf-8")
-
     counts: dict[str, int] = {}
     for row in debug_rows:
         label = str(row.get("debug_intent") or "UNKNOWN")
         counts[label] = counts.get(label, 0) + 1
-
     print("\n" + "=" * 72)
     print(f"BAY-S FACEBOOK DEMAND SEARCH COMPLETE | New HOT/WARM: {len(leads)}")
     print(f"Latest output: {OUTPUT_PATH}")
     print(f"Debug output: {DEBUG_PATH}")
     print("Intent summary: " + " | ".join(f"{k}={v}" for k, v in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)))
-
     for lead in leads[:10]:
         print("")
-        print(
-            f"{lead['classification']} | {lead.get('display_intent','')} | "
-            f"I{lead.get('intent_score',0)} C{lead.get('credibility_score',0)} F{lead.get('market_fit_score',0)}"
-        )
+        print(f"{lead['classification']} | {lead.get('display_intent','')} | I{lead.get('intent_score',0)} C{lead.get('credibility_score',0)} F{lead.get('market_fit_score',0)}")
         print(f"Group: {lead.get('group','')} | Query: {lead.get('search_query','')} | Link: {lead.get('link_quality','')}")
         if lead.get("contact_phone"):
             print(f"Phone: {lead.get('contact_phone')}")
@@ -396,9 +339,10 @@ def main() -> int:
         print(f"Age: {age:.1f}h" if isinstance(age, (int, float)) else "Age: UNKNOWN")
         print(base._clean_text(lead.get("text"))[:600])
         print(lead.get("url", ""))
-
-    if settings.get("notify_telegram", True) and leads:
+    if settings.get("notify_telegram", True) and leads and not retest_mode:
         base.notify_telegram(leads)
+    elif retest_mode and leads:
+        print("TELEGRAM_SKIPPED: retest mode")
     return 0
 
 
