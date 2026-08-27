@@ -10,7 +10,7 @@ if %errorlevel%==0 (
 )
 
 echo Starting BAY-S Facebook Targeted Demand Search...
-%PY% facebook_demand_search.py
+%PY% facebook_demand_runner.py
 set "EXITCODE=%errorlevel%"
 
 echo.
