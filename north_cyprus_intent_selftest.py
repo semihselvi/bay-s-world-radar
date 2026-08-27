@@ -28,7 +28,7 @@ def main():
         ("ambiguous", _item("Ищу квартиру 2+1 в Фамагусте."), "UNKNOWN", []),
         ("owner_direct_ambiguous", _item("Ищу квартиру 2+1 от собственника в Фамагусте."), "UNKNOWN", []),
         ("owner_direct_buy", _item("Хочу купить квартиру 2+1 от собственника в Фамагусте."), "BUYER", []),
-        ("matan_ready_title", _item("Хочу купить квартиру с готовым титулом в Искеле. Caesar Resort тоже рассматриваю.", author="@MatanHappy"), "BUYER", []),
+        ("matan_ready_title", _item("Хочу купить квартиру с готовым титулом в Искеле. Caesar Resort тоже рассмотрю.", author="@MatanHappy"), "BUYER", []),
         ("reply_sale", _item("цена?", reply_context="Продается квартира 2+1 в Искеле, цена £100000"), "BUYER", []),
         ("reply_rent", _item("price?", chat="North Cyprus Chat", reply_context="For rent apartment 2+1 in North Cyprus, monthly"), "TENANT", []),
     ]
