@@ -6,8 +6,40 @@ import os
 import requests
 
 import facebook_demand_search as demand
+from facebook_live_post_capture import resolve_live_post_link
 from facebook_post_link_resolver import canonical_direct, resolve_latest_leads
 from facebook_post_menu_resolver import _is_actionable_facebook_link, resolve_unresolved_with_copy_menu
+
+
+_ORIGINAL_RESOLVE_POST_PERMALINK = demand._resolve_post_permalink
+
+
+def _resolve_post_permalink_live(page, post, group):
+    """Prefer normal DOM permalink extraction, then capture Copy link immediately.
+
+    The important difference is timing: this runs while the exact search-result card
+    is still on screen. Re-opening the search later can reorder or omit that card.
+    """
+    direct = _ORIGINAL_RESOLVE_POST_PERMALINK(page, post, group)
+    if direct:
+        return direct
+
+    captured = resolve_live_post_link(page, post, group)
+    if captured:
+        print("    live post link: CAPTURED")
+        return captured
+    return ""
+
+
+def _has_exact_link(lead) -> bool:
+    group_url = str(lead.get("group_url") or "")
+    url = str(lead.get("url") or "")
+    action_url = str(lead.get("action_url") or "")
+    return bool(
+        canonical_direct(url, group_url)
+        or _is_actionable_facebook_link(url, group_url)
+        or _is_actionable_facebook_link(action_url, group_url)
+    )
 
 
 def _notify_actionable(leads):
@@ -21,20 +53,12 @@ def _notify_actionable(leads):
         return
 
     target = leads[:10]
-    unresolved = [
-        lead for lead in target
-        if not canonical_direct(str(lead.get("url") or ""), str(lead.get("group_url") or ""))
-        and not _is_actionable_facebook_link(str(lead.get("action_url") or ""), str(lead.get("group_url") or ""))
-    ]
+    unresolved = [lead for lead in target if not _has_exact_link(lead)]
     if unresolved:
         print(f"Resolving exact Facebook post links: {len(unresolved)} unresolved...")
         resolve_latest_leads(target)
 
-        still_unresolved = [
-            lead for lead in target
-            if not canonical_direct(str(lead.get("url") or ""), str(lead.get("group_url") or ""))
-            and not _is_actionable_facebook_link(str(lead.get("action_url") or ""), str(lead.get("group_url") or ""))
-        ]
+        still_unresolved = [lead for lead in target if not _has_exact_link(lead)]
         if still_unresolved:
             print(f"Trying Facebook Copy link menu: {len(still_unresolved)} unresolved...")
             resolve_unresolved_with_copy_menu(target)
@@ -50,17 +74,20 @@ def _notify_actionable(leads):
     sent = 0
     exact_count = 0
     for lead in target:
-        direct = canonical_direct(
-            str(lead.get("url") or ""),
-            str(lead.get("group_url") or ""),
-        )
+        group_url = str(lead.get("group_url") or "")
+        url = str(lead.get("url") or "").strip()
         action_url = str(lead.get("action_url") or "").strip()
+        direct = canonical_direct(url, group_url)
+
         if direct:
             lead["url"] = direct
             lead["link_quality"] = "DIRECT"
             exact_url = direct
             exact_label = "DIRECT POST"
-        elif _is_actionable_facebook_link(action_url, str(lead.get("group_url") or "")):
+        elif _is_actionable_facebook_link(url, group_url):
+            exact_url = url
+            exact_label = "COPIED POST LINK"
+        elif _is_actionable_facebook_link(action_url, group_url):
             exact_url = action_url
             exact_label = "COPIED POST LINK"
         else:
@@ -109,6 +136,10 @@ def _notify_actionable(leads):
 
 
 def main() -> int:
+    # Capture the exact post URL during the scan, while the result card that produced
+    # the lead is still present. This replaces the unreliable strategy of trying to
+    # reconstruct old links only after the scan has finished.
+    demand._resolve_post_permalink = _resolve_post_permalink_live
     demand.base.notify_telegram = _notify_actionable
     return demand.main()
 
