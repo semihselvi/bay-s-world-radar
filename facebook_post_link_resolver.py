@@ -165,6 +165,135 @@ def _direct_from_loaded_page(page, group_url: str) -> str:
         return ""
 
 
+def _resolve_by_clicking_post_route(context, search_url: str, text: str, group_url: str, max_scrolls: int = 5) -> str:
+    """Last-resort resolver: click the matched post's timestamp/date/comment route and inspect the opened route.
+
+    Facebook frequently keeps the real permalink out of the visible DOM on group-search
+    results. In that layout the timestamp is a React/SPA link. Reading hrefs is not
+    enough, so this routine uses a disposable page, finds the exact post card by text,
+    clicks the most post-specific route, then reads the resulting URL/canonical data.
+    """
+    needle = base._clean_text(text)[:260]
+    if not needle or not search_url:
+        return ""
+
+    temp = None
+    try:
+        temp = context.new_page()
+        try:
+            temp.goto(search_url, wait_until="domcontentloaded", timeout=60000)
+        except Exception:
+            pass
+        temp.wait_for_timeout(2800)
+
+        for round_no in range(max_scrolls):
+            pages_before = set(context.pages)
+            try:
+                clicked = temp.evaluate(
+                    """({needle}) => {
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                        const target = norm(needle);
+                        const prefix = target.slice(0, Math.min(105, target.length));
+                        const msgSel = '[data-ad-rendering-role="story_message"], [data-ad-preview="message"], [data-ad-comet-preview="message"]';
+                        let article = null;
+
+                        for (const msg of document.querySelectorAll(msgSel)) {
+                            const txt = norm(msg.innerText || '');
+                            const short = txt.slice(0, Math.min(105, txt.length));
+                            if (txt.includes(prefix) || target.includes(short)) {
+                                article = msg.closest('div[role="article"]') || msg.parentElement;
+                                break;
+                            }
+                        }
+                        if (!article) return {found:false, clicked:false, label:'', href:'', score:0};
+
+                        const monthRx = /(ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik|january|february|march|april|may|june|july|august|september|october|november|december)/i;
+                        const timeRx = /(^|\s)(\d+\s*(sn|dk|sa|saat|gün|gun|hafta|min|mins|h|hr|hrs|d|day|days|w)|az önce|dün|just now|yesterday)(\s|$)/i;
+                        const commentRx = /(yorum|comment|comments|yanıt|reply|replies)/i;
+                        const candidates = [];
+
+                        const nodes = article.querySelectorAll('a[href], a[role="link"], [role="link"]');
+                        nodes.forEach((el, idx) => {
+                            const href = el.href || el.getAttribute('href') || '';
+                            const label = norm([
+                                el.innerText || '',
+                                el.getAttribute('aria-label') || '',
+                                el.getAttribute('title') || ''
+                            ].join(' '));
+                            let score = 0;
+                            if (/\/groups\/[^/]+\/(posts|permalink)\//i.test(href)) score += 140;
+                            if (/story_fbid|multi_permalinks|post_id|top_level_post_id/i.test(href)) score += 130;
+                            if (monthRx.test(label)) score += 95;
+                            if (timeRx.test(label)) score += 90;
+                            if (/\d{1,2}[:.]\d{2}/.test(label)) score += 75;
+                            if (commentRx.test(label)) score += 55;
+                            if (/facebook\.com\/groups\//i.test(href)) score += 10;
+                            if (score > 0) candidates.push({el, idx, href, label, score});
+                        });
+                        candidates.sort((a,b) => b.score - a.score);
+                        if (!candidates.length) return {found:true, clicked:false, label:'', href:'', score:0};
+
+                        const best = candidates[0];
+                        try {
+                            if (best.el.tagName === 'A') best.el.setAttribute('target', '_self');
+                            best.el.scrollIntoView({block:'center'});
+                            best.el.click();
+                            return {found:true, clicked:true, label:best.label, href:best.href, score:best.score};
+                        } catch (e) {
+                            return {found:true, clicked:false, label:best.label, href:best.href, score:best.score};
+                        }
+                    }""",
+                    {"needle": needle},
+                )
+            except Exception:
+                clicked = {"found": False, "clicked": False}
+
+            if clicked.get("found"):
+                href = str(clicked.get("href") or "")
+                direct = canonical_direct(href, group_url)
+                if direct:
+                    return direct
+
+                if clicked.get("clicked"):
+                    temp.wait_for_timeout(1800)
+                    # The route may replace the current search page or open a new tab.
+                    for candidate_page in reversed(context.pages):
+                        if candidate_page in pages_before and candidate_page is not temp:
+                            continue
+                        try:
+                            candidate_page.wait_for_timeout(250)
+                        except Exception:
+                            pass
+                        direct = _direct_from_loaded_page(candidate_page, group_url)
+                        if direct:
+                            return direct
+
+                    direct = _direct_from_loaded_page(temp, group_url)
+                    if direct:
+                        return direct
+
+                    # Restore search results before another attempt/scroll.
+                    try:
+                        temp.goto(search_url, wait_until="domcontentloaded", timeout=45000)
+                        temp.wait_for_timeout(2200)
+                    except Exception:
+                        pass
+
+            if round_no + 1 < max_scrolls:
+                try:
+                    temp.mouse.wheel(0, 2600)
+                    temp.wait_for_timeout(1500)
+                except Exception:
+                    pass
+        return ""
+    finally:
+        if temp is not None:
+            try:
+                temp.close()
+            except Exception:
+                pass
+
+
 def resolve_on_search_page(page, lead: dict[str, Any], max_scrolls: int = 4) -> str:
     group_url = base._canonical_group_url(str(lead.get("group_url") or ""))
     current = canonical_direct(str(lead.get("url") or ""), group_url)
@@ -196,8 +325,7 @@ def resolve_on_search_page(page, lead: dict[str, Any], max_scrolls: int = 4) -> 
             if direct:
                 return direct
 
-        # Facebook sometimes exposes a timestamp/share route that only becomes the
-        # real permalink after navigation. Resolve those candidates in a spare tab.
+        # Some timestamp/share routes only become the real permalink after navigation.
         for href in (evidence.get("time_hrefs", []) or [])[:8]:
             if not href or "facebook.com" not in str(href).casefold():
                 continue
@@ -221,7 +349,10 @@ def resolve_on_search_page(page, lead: dict[str, Any], max_scrolls: int = 4) -> 
         if round_no + 1 < max_scrolls:
             page.mouse.wheel(0, 2600)
             page.wait_for_timeout(1600)
-    return ""
+
+    # Last resort: actually click the post's timestamp/date/comment route. This is
+    # intentionally done in a disposable page so the scanner's main page stays safe.
+    return _resolve_by_clicking_post_route(page.context, search_url, text, group_url, max_scrolls=5)
 
 
 def resolve_latest_leads(leads: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
