@@ -1,8 +1,8 @@
 {
   "settings": {
-    "scroll_rounds": 6,
+    "scroll_rounds": 5,
     "scroll_pause_seconds": 2.5,
-    "max_posts_per_group": 30,
+    "max_posts_per_group": 25,
     "max_age_hours": 72,
     "sort_newest": true,
     "notify_telegram": true
@@ -12,67 +12,67 @@
       "name": "Northern Cyprus Forum",
       "url": "https://www.facebook.com/groups/323875321020382/",
       "enabled": true,
-      "max_posts": 25
+      "demand_search": false
     },
     {
       "name": "North Cyprus Expats Group 2",
       "url": "https://www.facebook.com/groups/1287822358267595/",
       "enabled": true,
-      "max_posts": 25
+      "demand_search": true
     },
     {
       "name": "TFR - The Foreign Residents in the TRNC",
       "url": "https://www.facebook.com/groups/1476173132433149/",
       "enabled": true,
-      "max_posts": 15
+      "demand_search": true
     },
     {
       "name": "North Cyprus, TRNC",
       "url": "https://www.facebook.com/groups/312497126053963/",
       "enabled": true,
-      "max_posts": 25
+      "demand_search": true
     },
     {
       "name": "Kiralık evler ve daireler Kıbrıs Lefkoşa",
       "url": "https://www.facebook.com/groups/476334536765617/",
       "enabled": true,
-      "max_posts": 35
+      "demand_search": true
     },
     {
       "name": "MAĞUSA KİRALIK VE SATILIKLAR",
       "url": "https://www.facebook.com/groups/1145380070317104/",
       "enabled": true,
-      "max_posts": 35
+      "demand_search": true
     },
     {
       "name": "KKTC ALIM SATIM KİRALAMA",
       "url": "https://www.facebook.com/groups/363378668319558/",
       "enabled": true,
-      "max_posts": 35
+      "demand_search": true
     },
     {
       "name": "KKTC Emlak Dünyasi",
       "url": "https://www.facebook.com/groups/737269109776738/",
       "enabled": true,
-      "max_posts": 35
+      "demand_search": false
     },
     {
       "name": "KKTC EMLAK",
       "url": "https://www.facebook.com/groups/815273088562297/",
       "enabled": true,
-      "max_posts": 35
+      "demand_search": false
     },
     {
       "name": "KKTC SAHİBİNDEN SATILIK EVLER",
       "url": "https://www.facebook.com/groups/893431191547782/",
       "enabled": true,
-      "max_posts": 35
+      "demand_search": false
     },
     {
       "name": "Bazaraki Marketplace Property Cars Cyprus",
       "url": "https://www.facebook.com/groups/1528618690785361/",
       "enabled": true,
-      "max_posts": 35
+      "demand_search": false
     }
   ]
 }
