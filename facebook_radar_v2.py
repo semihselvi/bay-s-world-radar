@@ -24,74 +24,85 @@ def _intent_label(intent: dict[str, Any]) -> str:
 
 
 def _robust_dom_candidates(page) -> list[dict[str, Any]]:
-    """Extract visible Facebook post-like containers using several current DOM signals."""
+    """Extract top-level Facebook post content while avoiding comment articles."""
     try:
         return page.evaluate(
             """() => {
-                const nodes = [];
-                const seen = new Set();
+                const rows = [];
+                const seenContainers = new Set();
+                const postLinkSelector = 'a[href*="/groups/"][href*="/posts/"], a[href*="/permalink/"], a[href*="story_fbid="]';
+                const messageSelector = '[data-ad-rendering-role="story_message"], [data-ad-preview="message"], [data-ad-comet-preview="message"]';
 
-                const add = (el) => {
-                    if (!el || seen.has(el)) return;
-                    const text = (el.innerText || '').trim();
-                    if (text.length < 30 || text.length > 15000) return;
-                    seen.add(el);
-                    nodes.push(el);
+                const linksFor = (el) => Array.from(el.querySelectorAll('a[href]')).slice(0, 100).map((a) => ({
+                    href: a.href || '',
+                    text: (a.innerText || '').trim(),
+                    aria: a.getAttribute('aria-label') || '',
+                    title: a.getAttribute('title') || ''
+                }));
+
+                const add = (container, messageEl, source) => {
+                    if (!container || seenContainers.has(container)) return;
+                    const containerText = (container.innerText || '').trim();
+                    const messageText = messageEl ? (messageEl.innerText || '').trim() : '';
+                    const postLink = container.querySelector(postLinkSelector);
+
+                    // Facebook uses role=article for both posts and comments. A valid
+                    // candidate must therefore have either an explicit story-message
+                    // node or a real post permalink. Never accept role=article alone.
+                    if (!messageText && !postLink) return;
+
+                    const text = messageText || containerText;
+                    if (text.length < 20 || text.length > 12000) return;
+
+                    // Comment snippets normally contain reply UI but no post permalink
+                    // and no story-message marker. Keep this as an extra guard only.
+                    const low = text.toLowerCase();
+                    if (!postLink && !messageText && (low.includes('yanıtla') || low.includes('reply'))) return;
+
+                    seenContainers.add(container);
+                    rows.push({
+                        text,
+                        source,
+                        links: linksFor(container)
+                    });
                 };
 
-                document.querySelectorAll('div[role="article"]').forEach(add);
-
-                const messageSelectors = [
-                    '[data-ad-rendering-role="story_message"]',
-                    '[data-ad-preview="message"]',
-                    '[data-ad-comet-preview="message"]'
-                ];
-                document.querySelectorAll(messageSelectors.join(',')).forEach((msg) => {
-                    const article = msg.closest('div[role="article"]');
-                    if (article) {
-                        add(article);
-                        return;
-                    }
-                    let el = msg;
-                    for (let i = 0; i < 9 && el; i++, el = el.parentElement) {
-                        const t = (el.innerText || '').trim();
-                        const hasPostLink = el.querySelector && el.querySelector(
-                            'a[href*="/groups/"][href*="/posts/"], a[href*="/permalink/"]'
-                        );
-                        if (hasPostLink && t.length >= 30 && t.length <= 15000) {
-                            add(el);
-                            break;
+                // Primary path: Facebook's story-message nodes. These represent the
+                // post body and avoid pulling loaded comments into the classifier.
+                document.querySelectorAll(messageSelector).forEach((msg) => {
+                    let container = msg.closest('div[role="article"]');
+                    if (!container) {
+                        let el = msg;
+                        for (let i = 0; i < 10 && el; i++, el = el.parentElement) {
+                            if (el.querySelector && el.querySelector(postLinkSelector)) {
+                                container = el;
+                                break;
+                            }
                         }
                     }
+                    add(container || msg.parentElement, msg, 'story_message');
                 });
 
-                document.querySelectorAll(
-                    'a[href*="/groups/"][href*="/posts/"], a[href*="/permalink/"]'
-                ).forEach((a) => {
-                    const article = a.closest('div[role="article"]');
-                    if (article) {
-                        add(article);
-                        return;
-                    }
-                    let el = a;
-                    for (let i = 0; i < 10 && el; i++, el = el.parentElement) {
-                        const t = (el.innerText || '').trim();
-                        if (t.length >= 30 && t.length <= 15000) {
-                            add(el);
-                            break;
+                // Fallback path: start from an actual post permalink and walk to the
+                // nearest article/container. This is safe from ordinary comments.
+                document.querySelectorAll(postLinkSelector).forEach((a) => {
+                    let container = a.closest('div[role="article"]');
+                    if (!container) {
+                        let el = a;
+                        for (let i = 0; i < 10 && el; i++, el = el.parentElement) {
+                            const t = (el.innerText || '').trim();
+                            if (t.length >= 20 && t.length <= 12000) {
+                                container = el;
+                                if (el.querySelector && el.querySelector(messageSelector)) break;
+                            }
                         }
                     }
+                    if (!container) return;
+                    const msg = container.querySelector(messageSelector);
+                    add(container, msg, 'post_permalink');
                 });
 
-                return nodes.slice(0, 120).map((el) => ({
-                    text: (el.innerText || '').trim(),
-                    links: Array.from(el.querySelectorAll('a[href]')).slice(0, 80).map((a) => ({
-                        href: a.href || '',
-                        text: (a.innerText || '').trim(),
-                        aria: a.getAttribute('aria-label') || '',
-                        title: a.getAttribute('title') || ''
-                    }))
-                }));
+                return rows.slice(0, 120);
             }"""
         )
     except Exception:
@@ -109,7 +120,7 @@ def _collect_posts_v2(page, group: dict[str, Any], limit: int) -> list[dict[str,
         if len(posts) >= limit:
             break
         text = base._clean_text(candidate.get("text"))
-        if len(text) < 30:
+        if len(text) < 20:
             continue
         links = candidate.get("links") or []
         permalink = base._pick_permalink(links, group_url)
@@ -132,6 +143,7 @@ def _collect_posts_v2(page, group: dict[str, Any], limit: int) -> list[dict[str,
             "author": author,
             "text": text,
             "age_hours": age_hours,
+            "extractor_source": candidate.get("source", ""),
         }
         posts.append(post)
         RAW_POSTS[f"{group_name}|{local_key}"] = post
@@ -259,7 +271,8 @@ def _write_debug() -> None:
                 text = text[:497] + "..."
             print(
                 f"[{index}] {row.get('group','')} | "
-                f"{row.get('debug_intent','UNKNOWN')} | C{row.get('debug_confidence',0)}"
+                f"{row.get('debug_intent','UNKNOWN')} | C{row.get('debug_confidence',0)} | "
+                f"{row.get('extractor_source','')}"
             )
             print(" ", text)
 
