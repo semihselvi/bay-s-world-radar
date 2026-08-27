@@ -1,0 +1,17 @@
+{
+  "settings": {
+    "scroll_rounds": 5,
+    "scroll_pause_seconds": 2.5,
+    "max_posts_per_group": 25,
+    "max_age_hours": 72,
+    "sort_newest": true,
+    "notify_telegram": true
+  },
+  "groups": [
+    {
+      "name": "Northern Cyprus Forum",
+      "url": "https://www.facebook.com/groups/323875321020382/",
+      "enabled": true
+    }
+  ]
+}
