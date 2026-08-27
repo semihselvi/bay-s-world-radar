@@ -13,6 +13,16 @@ INTENT_COUNTS: Counter[str] = Counter()
 ORIGINAL_CLASSIFY = base._classify_post
 
 
+def _intent_label(intent: dict[str, Any]) -> str:
+    """Return the classifier label using the current classifier schema."""
+    return str(
+        intent.get("intent_class")
+        or intent.get("intent")
+        or intent.get("intent_type")
+        or "UNKNOWN"
+    )
+
+
 def _robust_dom_candidates(page) -> list[dict[str, Any]]:
     """Extract visible Facebook post-like containers using several current DOM signals."""
     try:
@@ -177,8 +187,6 @@ def _scan_group_v2(page, group: dict[str, Any], settings: dict[str, Any]) -> lis
         if len(collected) >= limit:
             break
 
-        # Some groups return an empty shell when the undocumented chronological
-        # query parameter is used. Retry the normal group feed once.
         if sort_newest and not retried_normal and round_no >= 1 and len(collected) == 0:
             retried_normal = True
             print("  No posts found with chronological URL; retrying normal group feed...")
@@ -206,24 +214,17 @@ def _classify_with_stats(post: dict[str, Any]) -> dict[str, Any] | None:
     }
     try:
         intent = base.classify_intent(item)
-        label = str(intent.get("intent") or intent.get("intent_type") or "UNKNOWN")
+        label = _intent_label(intent)
         confidence = int(intent.get("intent_confidence") or 0)
     except Exception:
         label = "CLASSIFIER_ERROR"
         confidence = 0
-        intent = {}
     INTENT_COUNTS[label] += 1
-
-    debug_key = post.get("url") or hashlib.sha1(str(post.get("text", "")).encode("utf-8", "ignore")).hexdigest()
-    if debug_key in RAW_POSTS:
-        RAW_POSTS[debug_key]["debug_intent"] = label
-        RAW_POSTS[debug_key]["debug_confidence"] = confidence
 
     return ORIGINAL_CLASSIFY(post)
 
 
 def _write_debug() -> None:
-    # Classify raw posts for inspection even if they were too old or filtered later.
     rows: list[dict[str, Any]] = []
     for post in RAW_POSTS.values():
         item = {
@@ -236,7 +237,7 @@ def _write_debug() -> None:
         try:
             intent = base.classify_intent(item)
             row = dict(post)
-            row["debug_intent"] = intent.get("intent") or intent.get("intent_type") or "UNKNOWN"
+            row["debug_intent"] = _intent_label(intent)
             row["debug_confidence"] = intent.get("intent_confidence") or 0
             row["debug_requirements"] = intent.get("requirements") or {}
             rows.append(row)
@@ -248,6 +249,19 @@ def _write_debug() -> None:
     path = base.ROOT / "facebook_posts_debug_latest.json"
     path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Raw/debug posts: {path}")
+    print(f"Debug rows saved: {len(rows)}")
+
+    if rows:
+        print("\nDEBUG SAMPLE POSTS")
+        for index, row in enumerate(rows[:12], start=1):
+            text = base._clean_text(row.get("text"))
+            if len(text) > 500:
+                text = text[:497] + "..."
+            print(
+                f"[{index}] {row.get('group','')} | "
+                f"{row.get('debug_intent','UNKNOWN')} | C{row.get('debug_confidence',0)}"
+            )
+            print(" ", text)
 
 
 def main() -> int:
