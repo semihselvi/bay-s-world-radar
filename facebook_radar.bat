@@ -9,8 +9,8 @@ if %errorlevel%==0 (
   set "PY=python"
 )
 
-echo Starting BAY-S Facebook Radar V2...
-%PY% facebook_radar_v2.py
+echo Starting BAY-S Facebook Radar V3...
+%PY% facebook_radar_v3.py
 set "EXITCODE=%errorlevel%"
 
 echo.
