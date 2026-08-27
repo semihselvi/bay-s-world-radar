@@ -7,6 +7,29 @@ import requests
 import facebook_demand_search as demand
 
 
+def _lead_search_phrase(text: str) -> str:
+    """Build a distinctive Facebook group-search phrase from the actual lead text."""
+    clean = demand.base._clean_text(text)
+    if not clean:
+        return ""
+
+    # Use enough of the real post to make Facebook's group search narrow to the
+    # specific lead, instead of the old broad queries such as `arıyorum`.
+    words = clean.split()
+    phrase = " ".join(words[:18])
+    if len(phrase) > 150:
+        phrase = phrase[:150].rsplit(" ", 1)[0]
+    return phrase.strip()
+
+
+def _lead_exact_search_url(lead) -> str:
+    group_url = str(lead.get("group_url") or "")
+    phrase = _lead_search_phrase(str(lead.get("text") or ""))
+    if not group_url or not phrase:
+        return ""
+    return demand._group_search_url(group_url, phrase)
+
+
 def _notify_actionable(leads):
     if not leads:
         return
@@ -23,9 +46,12 @@ def _notify_actionable(leads):
             str(lead.get("url") or ""),
             str(lead.get("group_url") or ""),
         )
-        fallback = str(lead.get("search_url") or lead.get("url") or "")
+
+        phrase = _lead_search_phrase(str(lead.get("text") or ""))
+        exact_search = _lead_exact_search_url(lead)
+        fallback = exact_search or str(lead.get("search_url") or lead.get("url") or "")
         link = direct or fallback
-        link_label = "DIRECT POST" if direct else "GROUP SEARCH"
+        link_label = "DIRECT POST" if direct else "LEAD TEXT SEARCH"
 
         text = demand.base._clean_text(lead.get("text"))
         if len(text) > 900:
@@ -35,7 +61,6 @@ def _notify_actionable(leads):
             f"🎯 BAY-S FACEBOOK LEAD | {lead.get('classification','')}",
             f"Intent: {lead.get('display_intent','')} | I{lead.get('intent_score',0)} C{lead.get('credibility_score',0)} F{lead.get('market_fit_score',0)}",
             f"Grup: {lead.get('group','')}",
-            f"Arama: {lead.get('search_query','')}",
         ]
         if lead.get("contact_phone"):
             lines.append(f"Telefon: {lead.get('contact_phone')}")
@@ -44,8 +69,10 @@ def _notify_actionable(leads):
             text,
             "",
             f"Link türü: {link_label}",
-            link,
         ])
+        if not direct and phrase:
+            lines.append(f"Facebook'ta bul: {phrase}")
+        lines.append(link)
 
         response = requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
@@ -66,9 +93,9 @@ def _notify_actionable(leads):
 
 
 def main() -> int:
-    # Keep the demand scanner logic unchanged; only replace Telegram formatting so
-    # fallback links open the exact group search used to find the lead instead of
-    # dumping the user on the group homepage.
+    # Keep the demand scanner logic unchanged; only replace Telegram formatting.
+    # If Facebook does not expose a stable post permalink, the fallback now searches
+    # the group using a distinctive phrase copied from that exact lead text.
     demand.base.notify_telegram = _notify_actionable
     return demand.main()
 
