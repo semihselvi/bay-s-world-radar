@@ -9,9 +9,9 @@ if %errorlevel%==0 (
   set "PY=python"
 )
 
-echo Starting BAY-S Facebook Demand RETEST...
+echo Starting BAY-S Facebook Demand RETEST with live link capture...
 set "FACEBOOK_DEMAND_RETEST=1"
-%PY% facebook_demand_search.py
+%PY% facebook_demand_runner.py
 set "EXITCODE=%errorlevel%"
 
 echo.
