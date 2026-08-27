@@ -28,6 +28,10 @@ SEARCH_QUERIES = [
 
 PHONE_RE = re.compile(r"(?<!\d)(?:\+?90\s*)?0?5\d(?:[\s().-]*\d){8}(?!\d)")
 ROOM_RE = re.compile(r"\b[0-6]\s*\+\s*[0-3]\b")
+POST_ID_RE = re.compile(
+    r"(?:top_level_post_id|mf_story_key|story_fbid|post_id)[\"'=:\s]+(\d{6,})",
+    re.I,
+)
 
 
 def _load_seen() -> dict[str, float]:
@@ -54,9 +58,9 @@ def _group_segment(group_url: str) -> str:
     return match.group(1) if match else ""
 
 
-def _canonical_direct_post_url(url: str, group_url: str) -> str:
-    """Convert Facebook post/search link variants into a stable direct group-post URL."""
-    if not url:
+def _canonical_direct_post_url(url: str, group_url: str, depth: int = 0) -> str:
+    """Convert Facebook post/search/redirect link variants into a stable direct group-post URL."""
+    if not url or depth > 2:
         return ""
     try:
         parts = urlsplit(url)
@@ -70,13 +74,18 @@ def _canonical_direct_post_url(url: str, group_url: str) -> str:
         if post_match:
             return f"https://www.facebook.com/groups/{post_match.group(1)}/posts/{post_match.group(2)}/"
 
-        multi = (query.get("multi_permalinks") or [""])[0]
-        if group_id and multi and str(multi).isdigit():
-            return f"https://www.facebook.com/groups/{group_id}/posts/{multi}/"
+        for key in ("multi_permalinks", "story_fbid", "post_id"):
+            value = (query.get(key) or [""])[0]
+            if group_id and str(value).isdigit():
+                return f"https://www.facebook.com/groups/{group_id}/posts/{value}/"
 
-        story = (query.get("story_fbid") or [""])[0]
-        if group_id and story and str(story).isdigit():
-            return f"https://www.facebook.com/groups/{group_id}/posts/{story}/"
+        # Facebook sometimes wraps the real destination in redirect query params.
+        for key in ("u", "href", "next", "redirect"):
+            nested = (query.get(key) or [""])[0]
+            if nested:
+                direct = _canonical_direct_post_url(str(nested), group_url, depth + 1)
+                if direct:
+                    return direct
 
         return ""
     except Exception:
@@ -84,7 +93,7 @@ def _canonical_direct_post_url(url: str, group_url: str) -> str:
 
 
 def _effective_post_key(post: dict[str, Any]) -> str:
-    """Never dedupe multiple posts just because Facebook gave us the group homepage as fallback."""
+    """Never dedupe multiple posts just because Facebook gave us a search/group fallback URL."""
     group_url = base._canonical_group_url(str(post.get("group_url") or ""))
     direct = _canonical_direct_post_url(str(post.get("url") or ""), group_url)
     if direct:
@@ -100,8 +109,9 @@ def _extract_phone(text: str) -> str:
 
 
 def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -> str:
-    """Locate the visible search-result card matching the post text and recover its direct permalink."""
+    """Locate a visible search-result card matching the post and recover its direct permalink/post id."""
     group_url = base._canonical_group_url(str(group.get("url") or ""))
+    group_id = _group_segment(group_url)
     current = _canonical_direct_post_url(str(post.get("url") or ""), group_url)
     if current:
         return current
@@ -109,48 +119,89 @@ def _resolve_post_permalink(page, post: dict[str, Any], group: dict[str, Any]) -
     needle = base._clean_text(post.get("text"))
     if not needle:
         return ""
-    # A short visible prefix is enough to match truncated Facebook search results.
-    needle = needle[:180]
+    needle = needle[:220]
 
     try:
-        hrefs = page.evaluate(
+        evidence = page.evaluate(
             """({needle}) => {
                 const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
                 const target = norm(needle);
-                if (!target) return [];
+                if (!target) return {hrefs: [], attrs: []};
+                const prefix = target.slice(0, Math.min(100, target.length));
                 const msgSel = '[data-ad-rendering-role="story_message"], [data-ad-preview="message"], [data-ad-comet-preview="message"]';
-                const postLinkSel = 'a[href*="/groups/"][href*="/posts/"], a[href*="/permalink/"], a[href*="story_fbid="], a[href*="multi_permalinks="]';
-                const out = [];
+                const containers = [];
+                const seen = new Set();
 
-                for (const msg of document.querySelectorAll(msgSel)) {
+                const maybeAdd = (el) => {
+                    if (!el || seen.has(el)) return;
+                    const txt = norm(el.innerText || '');
+                    if (!txt) return;
+                    const short = txt.slice(0, Math.min(100, txt.length));
+                    if (txt.includes(prefix) || target.includes(short)) {
+                        seen.add(el);
+                        containers.push(el);
+                    }
+                };
+
+                document.querySelectorAll(msgSel).forEach((msg) => {
                     const txt = norm(msg.innerText || '');
-                    const prefix = target.slice(0, Math.min(90, target.length));
-                    if (!(txt.includes(prefix) || target.includes(txt.slice(0, Math.min(90, txt.length))))) continue;
+                    const short = txt.slice(0, Math.min(100, txt.length));
+                    if (txt.includes(prefix) || target.includes(short)) {
+                        maybeAdd(msg.closest('div[role="article"]') || msg.parentElement);
+                    }
+                });
 
-                    let container = msg.closest('div[role="article"]');
-                    if (!container) container = msg.parentElement;
+                // Search-result layouts can omit the story-message marker. In that
+                // case match the enclosing article by text instead.
+                document.querySelectorAll('div[role="article"]').forEach(maybeAdd);
+
+                const hrefs = [];
+                const attrs = [];
+                for (const container of containers.slice(0, 4)) {
                     let el = container;
-                    for (let i = 0; i < 8 && el; i++, el = el.parentElement) {
+                    for (let i = 0; i < 7 && el; i++, el = el.parentElement) {
                         if (el.querySelectorAll) {
-                            for (const a of el.querySelectorAll(postLinkSel)) {
-                                if (a.href) out.push(a.href);
+                            for (const a of el.querySelectorAll('a[href]')) {
+                                if (a.href) hrefs.push(a.href);
+                            }
+                            for (const node of el.querySelectorAll('[data-ft],[data-story-id],[data-id],[data-testid]')) {
+                                for (const name of ['data-ft','data-story-id','data-id','data-testid']) {
+                                    const value = node.getAttribute(name);
+                                    if (value) attrs.push(value);
+                                }
                             }
                         }
-                        if (out.length) break;
+                        for (const name of ['data-ft','data-story-id','data-id','data-testid','id']) {
+                            const value = el.getAttribute && el.getAttribute(name);
+                            if (value) attrs.push(value);
+                        }
                     }
-                    if (out.length) break;
                 }
-                return [...new Set(out)].slice(0, 20);
+                return {
+                    hrefs: [...new Set(hrefs)].slice(0, 160),
+                    attrs: [...new Set(attrs)].slice(0, 160)
+                };
             }""",
             {"needle": needle},
         )
     except Exception:
-        hrefs = []
+        evidence = {"hrefs": [], "attrs": []}
 
-    for href in hrefs or []:
+    for href in (evidence or {}).get("hrefs", []) or []:
         direct = _canonical_direct_post_url(str(href), group_url)
         if direct:
             return direct
+
+    # Some Facebook layouts keep the post id in data-ft/data-story-id rather than
+    # in a visible anchor. Recover it conservatively only for numeric group ids.
+    if group_id.isdigit():
+        for value in (evidence or {}).get("attrs", []) or []:
+            match = POST_ID_RE.search(str(value))
+            if match:
+                return f"https://www.facebook.com/groups/{group_id}/posts/{match.group(1)}/"
+            if str(value).isdigit() and len(str(value)) >= 10:
+                return f"https://www.facebook.com/groups/{group_id}/posts/{value}/"
+
     return ""
 
 
@@ -237,6 +288,9 @@ def _scan_search(page, group: dict[str, Any], query: str, max_posts: int = 15) -
                 post["url"] = direct
                 post["link_quality"] = "DIRECT"
             else:
+                # Never send the group homepage as the lead link. A filtered search
+                # page is a much better manual fallback until a direct permalink is available.
+                post["url"] = search_url
                 post["link_quality"] = "SEARCH_FALLBACK"
 
             key = _effective_post_key(post)
@@ -338,9 +392,10 @@ def main() -> int:
         print(f"Group: {lead.get('group','')} | Query: {lead.get('search_query','')} | Link: {lead.get('link_quality','')}")
         if lead.get("contact_phone"):
             print(f"Phone: {lead.get('contact_phone')}")
+        age = lead.get("age_hours")
+        print(f"Age: {age:.1f}h" if isinstance(age, (int, float)) else "Age: UNKNOWN")
         print(base._clean_text(lead.get("text"))[:600])
-        direct = _canonical_direct_post_url(str(lead.get("url") or ""), str(lead.get("group_url") or ""))
-        print(direct or lead.get("search_url") or lead.get("url", ""))
+        print(lead.get("url", ""))
 
     if settings.get("notify_telegram", True) and leads:
         base.notify_telegram(leads)
