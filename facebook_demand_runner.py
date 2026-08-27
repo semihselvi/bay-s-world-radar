@@ -6,20 +6,18 @@ import os
 import requests
 
 import facebook_demand_search as demand
+from facebook_graphql_link_resolver import resolve_from_graphql_payloads
 from facebook_live_post_capture import resolve_live_post_link
 from facebook_post_link_resolver import canonical_direct, resolve_latest_leads
 from facebook_post_menu_resolver import _is_actionable_facebook_link, resolve_unresolved_with_copy_menu
 
 
 _ORIGINAL_RESOLVE_POST_PERMALINK = demand._resolve_post_permalink
+_ORIGINAL_SCAN_SEARCH = demand._scan_search
 
 
 def _resolve_post_permalink_live(page, post, group):
-    """Prefer normal DOM permalink extraction, then capture Copy link immediately.
-
-    The important difference is timing: this runs while the exact search-result card
-    is still on screen. Re-opening the search later can reorder or omit that card.
-    """
+    """Prefer normal DOM permalink extraction, then capture Copy link immediately."""
     direct = _ORIGINAL_RESOLVE_POST_PERMALINK(page, post, group)
     if direct:
         return direct
@@ -29,6 +27,68 @@ def _resolve_post_permalink_live(page, post, group):
         print("    live post link: CAPTURED")
         return captured
     return ""
+
+
+def _scan_search_with_graphql(page, group, query, max_posts=15):
+    """Capture Facebook GraphQL responses while the group search is loading.
+
+    The search-result UI can omit the real permalink entirely. The underlying GraphQL
+    payload still has the result text and post/story id, so correlate each extracted
+    post with those payloads after the normal scan finishes.
+    """
+    payloads: list[str] = []
+    captured_bytes = 0
+    max_payloads = 50
+    max_total_bytes = 16 * 1024 * 1024
+
+    def on_response(response):
+        nonlocal captured_bytes
+        try:
+            url = str(response.url or "").casefold()
+            if "facebook.com" not in url or "graphql" not in url:
+                return
+            if len(payloads) >= max_payloads or captured_bytes >= max_total_bytes:
+                return
+            body = response.text()
+            if not body:
+                return
+            encoded_len = len(body.encode("utf-8", "ignore"))
+            if captured_bytes + encoded_len > max_total_bytes:
+                return
+            payloads.append(body)
+            captured_bytes += encoded_len
+        except Exception:
+            return
+
+    page.on("response", on_response)
+    try:
+        posts = _ORIGINAL_SCAN_SEARCH(page, group, query, max_posts)
+    finally:
+        try:
+            page.remove_listener("response", on_response)
+        except Exception:
+            pass
+
+    if not posts or not payloads:
+        return posts
+
+    group_url = demand.base._canonical_group_url(str(group.get("url") or ""))
+    resolved = 0
+    for post in posts:
+        current_url = str(post.get("url") or "")
+        if canonical_direct(current_url, group_url) or _is_actionable_facebook_link(current_url, group_url):
+            continue
+        direct = resolve_from_graphql_payloads(str(post.get("text") or ""), group_url, payloads)
+        if direct:
+            post["url"] = direct
+            post["link_quality"] = "DIRECT"
+            post["link_source"] = "GRAPHQL"
+            resolved += 1
+    if resolved:
+        print(f"    graphql post links: CAPTURED {resolved}/{len(posts)}")
+    else:
+        print(f"    graphql post links: 0/{len(posts)}")
+    return posts
 
 
 def _has_exact_link(lead) -> bool:
@@ -136,10 +196,11 @@ def _notify_actionable(leads):
 
 
 def main() -> int:
-    # Capture the exact post URL during the scan, while the result card that produced
-    # the lead is still present. This replaces the unreliable strategy of trying to
-    # reconstruct old links only after the scan has finished.
+    # First try the visible card while it is present. In parallel, capture GraphQL
+    # search responses so post IDs can still be recovered when Facebook exposes no
+    # permalink/menu route in the rendered DOM.
     demand._resolve_post_permalink = _resolve_post_permalink_live
+    demand._scan_search = _scan_search_with_graphql
     demand.base.notify_telegram = _notify_actionable
     return demand.main()
 
