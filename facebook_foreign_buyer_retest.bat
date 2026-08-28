@@ -9,12 +9,12 @@ if %errorlevel%==0 (
   set "PY=python"
 )
 
-echo Starting BAY-S Foreign Buyer SAFE RETEST...
+echo Starting BAY-S Foreign Buyer V3 SAFE RETEST...
 set "FACEBOOK_FOREIGN_BUYER_RETEST=1"
-%PY% facebook_foreign_buyer_radar_v2.py
+%PY% facebook_foreign_buyer_radar_v3.py
 set "EXITCODE=%errorlevel%"
 
 echo.
-if not "%EXITCODE%"=="0" echo Foreign Buyer Safe Retest exited with code %EXITCODE%.
+if not "%EXITCODE%"=="0" echo Foreign Buyer V3 Safe Retest exited with code %EXITCODE%.
 pause
 exit /b %EXITCODE%
