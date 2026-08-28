@@ -13,6 +13,21 @@ PROPERTY = re.compile(
 )
 
 BUY_DEMAND = [
+    # English direct purchase intent. Facebook posts frequently say "looking to buy"
+    # rather than "looking for ... to buy", so keep both directions explicit.
+    re.compile(
+        r"\b(?:looking|hoping|want(?:ing)?|would\s+like|interested|considering|thinking|planning|ready)\b"
+        r".{0,35}\b(?:to\s+buy|to\s+purchase|buying|purchasing)\b"
+        r".{0,160}\b(?:property|apartment|flat|villa|house|studio)s?\b",
+        re.I | re.S,
+    ),
+    re.compile(
+        r"\b(?:property|apartment|flat|villa|house|studio)s?\b"
+        r".{0,160}\b(?:looking|hoping|want(?:ing)?|would\s+like|interested|considering|thinking|planning|ready)\b"
+        r".{0,35}\b(?:to\s+buy|to\s+purchase|buying|purchasing)\b",
+        re.I | re.S,
+    ),
+    re.compile(r"\bcash\s+buyer\b.{0,160}\b(?:property|apartment|flat|villa|house|studio)s?\b", re.I | re.S),
     re.compile(r"\blooking\s+for\b.{0,100}\b(?:to\s+buy|for\s+sale)\b", re.I | re.S),
     re.compile(r"\b(?:want|wants|wanted|planning|plan|ready|hoping)\s+(?:to\s+)?buy\b.{0,140}\b(?:property|apartment|flat|villa|house|studio)s?\b", re.I | re.S),
     re.compile(r"\b(?:property|apartment|flat|villa|house|studio)s?\b.{0,80}\b(?:wanted\s+to\s+buy|wanted\s+for\s+purchase)\b", re.I | re.S),
@@ -58,8 +73,8 @@ SUPPLY_GUARD = re.compile(
     re.I,
 )
 DEMAND_WORD = re.compile(
-    r"\b(?:looking|need|wanted|want|planning|ready|ar[ıi]yorum|istiyorum|al[ıi]c[ıi]y[ıi]m|"
-    r"ищу|хочу|нужн\w*|möchte|moechte|suche|kaufen|erwerben)\b",
+    r"\b(?:looking|need|wanted|want|planning|ready|interested|considering|thinking|purchase|buying|"
+    r"ar[ıi]yorum|istiyorum|al[ıi]c[ıi]y[ıi]m|ищу|хочу|нужн\w*|möchte|moechte|suche|kaufen|erwerben)\b",
     re.I,
 )
 
