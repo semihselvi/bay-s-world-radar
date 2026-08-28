@@ -7,6 +7,7 @@ from typing import Any, Callable
 PROPERTY = re.compile(
     r"\b(?:property|apartment|apartments|flat|flats|villa|villas|house|houses|studio|studios|"
     r"immobilie|immobilien|wohnung|wohnungen|haus|haeuser|häuser|"
+    r"nieruchomo(?:ść|sci|ści)|mieszkanie|mieszkania|apartament|apartamenty|willa|wille|dom|domy|"
     r"daire|daireler|ev|evler|villa|villalar|st[üu]dyo|konut|"
     r"квартир\w*|апартамент\w*|вилл\w*|дом\w*|студи\w*)\b|\b[0-6]\s*\+\s*[0-3]\b",
     re.I,
@@ -40,6 +41,9 @@ BUY_DEMAND = [
     re.compile(r"\b(?:ich\s+)?(?:möchte|moechte|will|plane|suche)\b.{0,120}\b(?:immobilie|wohnung|haus|villa|apartment)\w*\b.{0,100}\b(?:kaufen|erwerben)\b", re.I | re.S),
     re.compile(r"\b(?:immobilie|wohnung|haus|villa|apartment)\w*\b.{0,100}\b(?:kaufen|zum\s+kauf\s+gesucht|zu\s+kaufen\s+gesucht)\b", re.I | re.S),
     re.compile(r"\bsuche\b.{0,120}\b(?:immobilie|wohnung|haus|villa|apartment)\w*\b.{0,80}\b(?:zum\s+kauf|zu\s+kaufen)\b", re.I | re.S),
+    re.compile(r"\b(?:chcę|chce|planuję|planuje|zamierzam)\b.{0,100}\bkupić\b.{0,120}\b(?:nieruchomo(?:ść|sci|ści)|mieszkanie|apartament|willę|wille|dom)\b", re.I | re.S),
+    re.compile(r"\bszukam\b.{0,120}\b(?:nieruchomo(?:ści|sci)|mieszkania|apartamentu|willi|domu)\b.{0,100}\b(?:do\s+kupienia|na\s+zakup|kupić)\b", re.I | re.S),
+    re.compile(r"\b(?:kupię|kupie)\b.{0,120}\b(?:nieruchomo(?:ść|sci)|mieszkanie|apartament|willę|wille|dom)\b", re.I | re.S),
 ]
 
 RENT_DEMAND = [
@@ -50,6 +54,7 @@ RENT_DEMAND = [
     re.compile(r"\b(?:daire|ev|villa|st[üu]dyo|konut)\b.{0,100}\bkiral[ıi]k\b.{0,100}\bar[ıi]yorum\b", re.I | re.S),
     re.compile(r"\b(?:uzun|k[ıi]sa)\s+d[öo]nem\b.{0,120}\b(?:daire|ev|villa|st[üu]dyo|konut)\b.{0,100}\bar[ıi]yorum\b", re.I | re.S),
     re.compile(r"\bищу\b.{0,120}\b(?:снять|в\s+аренду|на\s+долгосрок|долгосроч)\b", re.I | re.S),
+    re.compile(r"\bszukam\b.{0,120}\b(?:mieszkania|apartamentu|willi|domu)\b.{0,100}\b(?:do\s+wynajęcia|do\s+wynajecia|wynajem|wynająć|wynajac)\b", re.I | re.S),
 ]
 
 # Facebook groups often contain agents/property finders posting requirements on
@@ -65,16 +70,18 @@ INTERMEDIARY_PATTERNS = [
     re.compile(r"\bm[üu][şs]terilerim\s+i[çc]in\b", re.I),
     re.compile(r"\bдля\s+(?:моего|нашего|своего)\s+клиент\w*\b", re.I),
     re.compile(r"\b(?:für|fuer)\s+(?:meinen|unseren|einen)\s+kunden\b", re.I),
+    re.compile(r"\bdla\s+(?:mojego|naszego|klienta|klientki|klientów|klientow)\b", re.I),
 ]
 
 SUPPLY_GUARD = re.compile(
     r"\b(?:for\s+sale|for\s+rent|available\s+now|sat[ıi]l[ıi]k|kiral[ıi]k|прода[её]тся|сда[её]тся|"
-    r"zu\s+verkaufen|zum\s+verkauf|zu\s+vermieten)\b",
+    r"zu\s+verkaufen|zum\s+verkauf|zu\s+vermieten|na\s+sprzedaż|na\s+sprzedaz|do\s+wynajęcia|do\s+wynajecia)\b",
     re.I,
 )
 DEMAND_WORD = re.compile(
     r"\b(?:looking|need|wanted|want|planning|ready|interested|considering|thinking|purchase|buying|"
-    r"ar[ıi]yorum|istiyorum|al[ıi]c[ıi]y[ıi]m|ищу|хочу|нужн\w*|möchte|moechte|suche|kaufen|erwerben)\b",
+    r"ar[ıi]yorum|istiyorum|al[ıi]c[ıi]y[ıi]m|ищу|хочу|нужн\w*|möchte|moechte|suche|kaufen|erwerben|"
+    r"szukam|chcę|chce|kupić|kupię|kupie)\b",
     re.I,
 )
 
