@@ -10,7 +10,7 @@ if %errorlevel%==0 (
 )
 
 echo Starting BAY-S Foreign Buyer Radar...
-%PY% facebook_foreign_buyer_radar.py
+%PY% facebook_foreign_buyer_radar_v2.py
 set "EXITCODE=%errorlevel%"
 
 echo.
