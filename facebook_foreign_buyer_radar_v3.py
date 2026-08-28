@@ -38,6 +38,7 @@ NORTH_SIGNAL_RE = re.compile(
 )
 
 ROTATION_PATH = radar.base.STATE_DIR / "facebook_foreign_buyer_rotation.json"
+PENDING_PLAN_PATH = radar.base.STATE_DIR / "facebook_foreign_buyer_pending_plan.json"
 
 
 def _load_rotation() -> int:
@@ -63,6 +64,43 @@ def _select_rotating_groups(groups: list[dict[str, Any]], limit: int) -> tuple[l
     start = _load_rotation() % len(groups)
     selected = [groups[(start + offset) % len(groups)] for offset in range(limit)]
     return selected, (start + limit) % len(groups)
+
+
+def _group_key(group: dict[str, Any]) -> str:
+    return str(group.get("url") or group.get("name") or "").strip()
+
+
+def _save_pending_plan(selected: list[dict[str, Any]], next_index: int) -> None:
+    radar.base.STATE_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "group_keys": [_group_key(group) for group in selected],
+        "next_index": int(next_index),
+        "created_at": time.time(),
+    }
+    PENDING_PLAN_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_pending_plan(groups: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int] | None:
+    try:
+        data = json.loads(PENDING_PLAN_PATH.read_text(encoding="utf-8"))
+        keys = [str(x) for x in (data.get("group_keys") or []) if str(x).strip()]
+        if not keys:
+            return None
+        by_key = {_group_key(group): group for group in groups}
+        selected = [by_key[key] for key in keys if key in by_key]
+        if len(selected) != len(keys):
+            return None
+        next_index = max(0, int(data.get("next_index", _load_rotation())))
+        return selected, next_index
+    except Exception:
+        return None
+
+
+def _clear_pending_plan() -> None:
+    try:
+        PENDING_PLAN_PATH.unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 def _language(text: str, query_language: str) -> str:
@@ -135,8 +173,10 @@ def _classify_foreign_buyer_v3(
 
 def _plan_only(groups: list[dict[str, Any]], max_groups: int) -> int:
     selected, next_index = _select_rotating_groups(groups, max_groups)
+    _save_pending_plan(selected, next_index)
     print("BAY-S FOREIGN BUYER RADAR PLAN - Facebook/browser access: NONE")
     print(f"Whitelist groups: {len(groups)} | This run: {len(selected)} | Next rotation index: {next_index}")
+    print("PLAN LOCKED: the next real scan will use exactly these groups")
     for idx, group in enumerate(selected, 1):
         specs = _group_specs(group)
         query = specs[0]["query"] if specs else "-"
@@ -171,9 +211,14 @@ def main() -> int:
         next_rotation = _load_rotation()
         print("SAFE RETEST: 1 group x 1 language query | Telegram disabled | no menu/post clicks")
     else:
-        selected_groups, next_rotation = _select_rotating_groups(groups, max_groups)
+        pending = _load_pending_plan(groups)
+        if pending is not None:
+            selected_groups, next_rotation = pending
+            print("USING LOCKED PLAN: exact groups from the latest offline plan")
+        else:
+            selected_groups, next_rotation = _select_rotating_groups(groups, max_groups)
         print(
-            f"FOREIGN BUYER RADAR V3: whitelist={len(groups)} | "
+            f"FOREIGN BUYER RADAR: whitelist={len(groups)} | "
             f"this run={len(selected_groups)} | max {max_posts} posts/search"
         )
 
@@ -241,12 +286,13 @@ def main() -> int:
             seen[demand._effective_post_key(lead)] = now
         radar._save_seen(seen)
         _save_rotation(next_rotation)
+        _clear_pending_plan()
 
     radar.OUTPUT_PATH.write_text(json.dumps(leads, ensure_ascii=False, indent=2), encoding="utf-8")
     radar.DEBUG_PATH.write_text(json.dumps(debug_rows, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print("\n" + "=" * 72)
-    print(f"BAY-S FOREIGN BUYER RADAR V3 COMPLETE | BUYER leads: {len(leads)}")
+    print(f"BAY-S FOREIGN BUYER RADAR COMPLETE | BUYER leads: {len(leads)}")
     print(f"Groups scanned this run: {len(selected_groups)}/{len(groups)}")
     print(f"Latest output: {radar.OUTPUT_PATH}")
 
@@ -281,5 +327,5 @@ if __name__ == "__main__":
         print("\nCancelled.")
         raise SystemExit(130)
     except Exception as exc:
-        print(f"\nFACEBOOK_FOREIGN_BUYER_V3_ERROR: {exc}")
+        print(f"\nFACEBOOK_FOREIGN_BUYER_ERROR: {exc}")
         raise SystemExit(1)
