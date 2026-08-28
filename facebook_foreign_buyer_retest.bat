@@ -11,7 +11,7 @@ if %errorlevel%==0 (
 
 echo Starting BAY-S Foreign Buyer SAFE RETEST...
 set "FACEBOOK_FOREIGN_BUYER_RETEST=1"
-%PY% facebook_foreign_buyer_radar.py
+%PY% facebook_foreign_buyer_radar_v2.py
 set "EXITCODE=%errorlevel%"
 
 echo.
