@@ -25,8 +25,9 @@ MARKETS = {
     "italy": ["Italy", "Rome", "Milan", "Sicily", "Puglia", "Tuscany", "Italian property"],
     "cyprus": ["Cyprus", "Republic of Cyprus", "Paphos", "Limassol", "Larnaca", "Nicosia"],
     "germany": ["Germany", "Deutschland", "Berlin", "Munich", "Frankfurt", "Hamburg", "Cologne", "Köln"],
-    "netherlands": ["Netherlands", "Amsterdam", "Rotterdam", "The Hague", "Utrecht"],
-    "belgium": ["Belgium", "Brussels", "Antwerp", "Ghent"],
+    "netherlands": ["Netherlands", "Nederland", "Amsterdam", "Rotterdam", "The Hague", "Den Haag", "Utrecht"],
+    "belgium": ["Belgium", "België", "Belgie", "Belgique", "Brussels", "Bruxelles", "Antwerp", "Antwerpen", "Ghent", "Gent"],
+    "switzerland": ["Switzerland", "Schweiz", "Suisse", "Svizzera", "Zurich", "Zürich", "Geneva", "Genève", "Basel", "Bern", "Lausanne"],
     "france": ["France", "Paris", "Nice", "Cannes", "Marseille", "Lyon"],
     "lithuania": ["Lithuania", "Vilnius", "Kaunas", "Klaipeda"],
     "russia": ["Russia", "Россия", "Москва", "Санкт-Петербург"],
@@ -62,5 +63,5 @@ NEGATIVE_PHRASES = [
 
 ROUTES = {
     "north_cyprus": "Prime Kıbrıs", "turkey": "Turkey Partner", "greece": "Golden Visa Partner", "portugal": "Golden Visa Partner", "cyprus": "Golden Visa Partner",
-    "germany": "Germany Partner", "netherlands": "Netherlands Partner", "france": "France Partner", "montenegro": "Partner Network", "uk": "Partner Network", "belgium": "Partner Network", "lithuania": "Partner Network", "italy": "Partner Network", "spain": "Partner Network", "russia": "Partner Network", "kazakhstan": "Partner Network", "poland": "Partner Network", "czech_republic": "Partner Network", "austria": "Partner Network"
+    "germany": "Germany Partner", "netherlands": "Netherlands Partner", "belgium": "Belgium Partner", "switzerland": "Switzerland Partner", "france": "France Partner", "montenegro": "Partner Network", "uk": "Partner Network", "lithuania": "Partner Network", "italy": "Partner Network", "spain": "Partner Network", "russia": "Partner Network", "kazakhstan": "Partner Network", "poland": "Partner Network", "czech_republic": "Partner Network", "austria": "Partner Network"
 }
