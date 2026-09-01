@@ -1,8 +1,24 @@
 from datetime import datetime, timezone
 import re
+import os
 
 import youtube_radar as yr
 import youtube_comment_expansion as yce  # patches replies, watchlist ranking and full dedupe
+
+# Keep Telegram quiet when there is nothing actionable. Real leads and failures
+# still pass through normally.
+_original_notify = yr.main.notify_telegram
+
+
+def _quiet_notify(message):
+    text = str(message or "")
+    if os.getenv("BAY_S_NOTIFY_EMPTY", "0").strip() != "1" and "Yeni alıcı adayı yok" in text:
+        print("YOUTUBE_EMPTY_STATUS_SUPPRESSED")
+        return
+    return _original_notify(message)
+
+
+yr.main.notify_telegram = _quiet_notify
 
 CORE = [
     "North Cyprus property",
