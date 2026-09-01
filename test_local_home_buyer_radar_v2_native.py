@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone
 
 import local_home_buyer_radar_v2_native as native
 
@@ -19,7 +20,8 @@ class LocalHomeBuyerRadarNativeTests(unittest.TestCase):
         )
 
     def test_parse_reader_page_builds_classifiable_item(self):
-        text = """Title: Buying a home in Germany\nPublished Time: 2026-08-30T10:00:00Z\nMarkdown Content:\nI am looking to buy an apartment in Berlin. Budget €450000 and mortgage pre-approved.\n"""
+        published = datetime.now(timezone.utc).isoformat()
+        text = f"""Title: Buying a home in Germany\nPublished Time: {published}\nMarkdown Content:\nI am looking to buy an apartment in Berlin. Budget €450000 and mortgage pre-approved.\n"""
         item = native.parse_reader_page(
             "Reddit Germany",
             "https://www.reddit.com/r/germany/comments/abc/buying_a_home/",
