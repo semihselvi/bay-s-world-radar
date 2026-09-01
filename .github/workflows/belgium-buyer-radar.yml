@@ -1,4 +1,4 @@
-name: BAY-S Belgium Buyer Radar
+name: ABROAD - Belgium Resident Buyer Radar
 
 "on":
   workflow_dispatch:
