@@ -1,10 +1,89 @@
 import os
+import re
 import asyncio
 from datetime import datetime, timedelta, timezone
 
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Chat, User
+
+
+PROPERTY_RE = re.compile(
+    r"(?:property|apartment|flat|house|villa|studio|land|plot|real\s+estate|"
+    r"квартир\w*|апартамент\w*|дом\w*|вилл\w*|недвижимост\w*|студи\w*|участ\w*|"
+    r"daire|ev|villa|arsa|gayrimenkul|konut|"
+    r"immobilie|wohnung|haus|grundst(?:u|ü)ck|"
+    r"nieruchomo\w*|mieszkan\w*|apartament\w*|dom\w*|działk\w*|dzialk\w*)",
+    re.I,
+)
+REQUEST_VOICE_RE = re.compile(
+    r"(?:\b(?:i|we)\b.{0,45}\b(?:want|looking|need|plan|planning|considering|ready|seeking)\b|"
+    r"\b(?:я|мы)\b.{0,45}\b(?:хочу|хотим|ищу|ищем|нужн\w*|планир\w*|готов\w*)\b|"
+    r"\b(?:ben|biz)\b.{0,45}\b(?:istiyorum|istiyoruz|arıyorum|ariyorum|bakıyorum|bakiyorum|düşünüyorum|dusunuyorum)\b|"
+    r"\b(?:ich|wir)\b.{0,45}\b(?:suche|suchen|möchte|moechte|möchten|moechten|will|wollen)\b|"
+    r"\b(?:ja|my)\b.{0,45}\b(?:chcę|chcemy|szukam|szukamy|planuję|planujemy)\b|"
+    r"\bje\b.{0,30}\b(?:cherche|veux|souhaite)\b|\b(?:ik|wij|we)\b.{0,30}\b(?:zoek|zoeken|wil|willen)\b)",
+    re.I | re.S,
+)
+PURCHASE_RE = re.compile(
+    r"(?:\b(?:buy|purchase|buying|purchasing)\b|\b(?:купить|куплю|покупк\w*|приобрест\w*)\b|"
+    r"\b(?:satın\s+al\w*|almak)\b|\b(?:kaufen|kauf|erwerben)\b|"
+    r"\b(?:kupić|kupic|zakupić|zakupic)\b|\bacheter\b|\bkopen\b)",
+    re.I,
+)
+PURCHASE_QUALIFIER_RE = re.compile(
+    r"(?:title\s+deed|deed|ownership|freehold|mortgage|payment\s+plan|installment|deposit|"
+    r"тапу|титул\w*|переуступк\w*|ипотек\w*|рассрочк\w*|первоначальн\w*\s+взнос\w*|"
+    r"tapu|koçan|kocan|eşdeğer|esdeger|tahsis|peşinat|pesinat|taksit|"
+    r"grundbuch|eigentum|hypothek|zahlungsplan|ksi[eę]ga\s+wieczysta|własno\w*|wlasno\w*)",
+    re.I,
+)
+RENT_RE = re.compile(
+    r"(?:for\s+rent|looking\s+to\s+rent|rental|per\s+month|monthly|"
+    r"аренд\w*|сниму|снять|сда[её]тся|в\s+месяц|посуточ\w*|"
+    r"kiralık|aylık|günlük|mieten|miete|wynajem\w*)",
+    re.I,
+)
+SELLER_RE = re.compile(
+    r"(?:for\s+sale|owner'?s\s+sale|available\s+now|property\s+(?:id|code|ref)|listing\s+(?:id|ref)|"
+    r"прода[её]тся|продам|код\s+объекта|номер\s+объекта|цена\s+от|"
+    r"satılık|portföy|ilan\s+no|zu\s+verkaufen|na\s+sprzedaż|numer\s+oferty|"
+    r"contact\s+(?:me|us)|whatsapp|dm\s+(?:me|us)|agent|agency|realtor|broker|developer|риэлтор|агентств\w*)",
+    re.I,
+)
+AMOUNT_RE = re.compile(r"(?P<sym>[£€$])\s*(?P<num>\d[\d\s.,]*)(?P<k>\s*[kK])?")
+
+
+def _purchase_scale_budget(text):
+    for m in AMOUNT_RE.finditer(text or ""):
+        raw = m.group("num").replace(" ", "")
+        if "," in raw or "." in raw:
+            parts = re.split(r"[.,]", raw)
+            raw = "".join(parts) if len(parts[-1]) == 3 else raw.replace(",", ".")
+        try:
+            value = float(raw)
+        except Exception:
+            continue
+        if m.group("k"):
+            value *= 1000
+        if value >= 10000:
+            return True
+    return False
+
+
+def _actionable_property_buyer(text):
+    body = " ".join(str(text or "").split())
+    if not body or not PROPERTY_RE.search(body):
+        return False
+    if SELLER_RE.search(body) or RENT_RE.search(body):
+        return False
+    if not REQUEST_VOICE_RE.search(body):
+        return False
+    return bool(
+        PURCHASE_RE.search(body)
+        or PURCHASE_QUALIFIER_RE.search(body)
+        or _purchase_scale_budget(body)
+    )
 
 
 def _chat_link(entity, message_id):
@@ -33,18 +112,12 @@ def _csv_env(name):
 
 def _allowed_title(title):
     t = (title or "").lower()
-
-    # Existing explicit allow-list remains authoritative when configured.
     wanted = _csv_env("WORLD_TELEGRAM_MEMBER_CHATS")
     if wanted and not any(x in t for x in wanted):
         return False
-
-    # Optional broad title keywords let a dedicated shard scan only likely
-    # North-Cyprus groups without changing the normal all-groups radar.
     keywords = _csv_env("WORLD_TELEGRAM_MEMBER_TITLE_KEYWORDS")
     if keywords and not any(x in t for x in keywords):
         return False
-
     return True
 
 
@@ -69,11 +142,11 @@ async def _collect():
         return []
 
     items = []
+    rejected = 0
     dialogs_seen = 0
     try:
         async for dialog in client.iter_dialogs(limit=max_dialogs):
             entity = dialog.entity
-            # Privacy boundary: only groups/supergroups/channels. Never private 1:1 chats.
             if isinstance(entity, User):
                 continue
             if not isinstance(entity, (Channel, Chat)):
@@ -94,6 +167,11 @@ async def _collect():
                     if dt and dt < cutoff:
                         break
 
+                    text = str(msg.message).strip()
+                    if not _actionable_property_buyer(text):
+                        rejected += 1
+                        continue
+
                     sender = None
                     try:
                         sender = await msg.get_sender()
@@ -104,7 +182,7 @@ async def _collect():
                         "source": "Telegram Member",
                         "url": _chat_link(entity, msg.id),
                         "title": f"Telegram | {title}",
-                        "text": str(msg.message).strip(),
+                        "text": text,
                         "published": dt.astimezone(timezone.utc).isoformat() if dt else "",
                         "author": _sender_name(sender),
                         "source_bucket": "telegram_member_account",
@@ -115,7 +193,7 @@ async def _collect():
     finally:
         await client.disconnect()
 
-    print(f"TELEGRAM_MEMBER_COUNTS dialogs={dialogs_seen} messages={len(items)}")
+    print(f"TELEGRAM_MEMBER_COUNTS dialogs={dialogs_seen} messages={len(items)} rejected_nonbuyer={rejected}")
     return items
 
 
