@@ -1,4 +1,4 @@
-name: BAY-S Switzerland Buyer Radar
+name: ABROAD - Switzerland Resident Buyer Radar
 
 "on":
   workflow_dispatch:
