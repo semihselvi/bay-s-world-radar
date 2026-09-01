@@ -1,6 +1,6 @@
 import unittest
 
-import local_home_buyer_radar_v2_precision as radar
+import local_home_buyer_radar_v2_stagefix as radar
 
 
 class LocalHomeBuyerRadarV2Tests(unittest.TestCase):
