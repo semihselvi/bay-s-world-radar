@@ -21,18 +21,19 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Test local home buyer radar v2.3
+      - name: Test local home buyer radar v2.4
         run: |
-          python -m py_compile local_home_buyer_radar.py local_home_buyer_radar_v2.py local_home_buyer_radar_v2_precision.py local_home_buyer_radar_v2_stagefix.py test_local_home_buyer_radar.py test_local_home_buyer_radar_v2.py
-          python -m unittest -v test_local_home_buyer_radar.py test_local_home_buyer_radar_v2.py
-      - name: Run Switzerland home buyer radar v2.3
+          python -m py_compile local_home_buyer_radar.py local_home_buyer_radar_v2.py local_home_buyer_radar_v2_precision.py local_home_buyer_radar_v2_stagefix.py local_home_buyer_radar_v2_native.py test_local_home_buyer_radar.py test_local_home_buyer_radar_v2.py test_local_home_buyer_radar_v2_native.py
+          python -m unittest -v test_local_home_buyer_radar.py test_local_home_buyer_radar_v2.py test_local_home_buyer_radar_v2_native.py
+      - name: Run Switzerland home buyer radar v2.4
         env:
           LOCAL_HOME_RADAR_PROFILE: switzerland_home
           LOCAL_HOME_LOOKBACK_HOURS: "168"
-          LOCAL_HOME_BING_QUERY_LIMIT: "12"
+          LOCAL_HOME_BING_QUERY_LIMIT: "1"
           LOCAL_HOME_SERPER_QUERY_LIMIT: "4"
+          LOCAL_HOME_NATIVE_DETAIL_LIMIT: "6"
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python local_home_buyer_radar_v2_stagefix.py
+        run: python local_home_buyer_radar_v2_native.py
