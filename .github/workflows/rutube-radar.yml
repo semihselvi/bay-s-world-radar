@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Syntax check
-        run: python -m py_compile main.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_catcher.py north_cyprus_spam_guard.py rutube_radar.py
+        run: python -m py_compile main.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_catcher.py north_cyprus_spam_guard.py rutube_radar.py rutube_radar_silent.py
       - name: Run RuTube Radar
         env:
           RUTUBE_MODE: ${{ github.event_name == 'workflow_dispatch' && 'discover_scan' || (github.event.schedule == '42 5 * * *' && 'discover_scan' || 'scan') }}
@@ -36,15 +36,15 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python - <<'PY'
-          import rutube_radar
+          import rutube_radar_silent
           try:
-              rutube_radar.run()
+              rutube_radar_silent.run()
           except Exception as exc:
               # RuTube uses unofficial/best-effort endpoints. Losing this source must
               # not make the wider Radar look unhealthy or interrupt other lanes.
               print("RUTUBE_BEST_EFFORT_DEGRADED", repr(exc))
               try:
-                  rutube_radar.main.notify_telegram(
+                  rutube_radar_silent.rutube_radar.main.notify_telegram(
                       "⚠️ BAY-S RUTUBE kaynağı bu tur kullanılamadı. Best-effort kaynak atlandı; diğer Radar'lar normal devam ediyor."
                   )
               except Exception:
