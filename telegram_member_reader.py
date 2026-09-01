@@ -3,9 +3,31 @@ import re
 import asyncio
 from datetime import datetime, timedelta, timezone
 
+import main
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Chat, User
+
+
+# All World Radar shards import this module through shard_runner. Suppress routine
+# zero-lead status messages while preserving real lead and failure notifications.
+_ORIGINAL_NOTIFY = main.notify_telegram
+
+
+def _quiet_notify(message):
+    text = str(message or "")
+    empty_markers = (
+        "Yeni HOT/WARM lead yok",
+        "Yeni gerçek BUYER/TENANT yok",
+        "Yeni alıcı adayı yok",
+    )
+    if os.getenv("BAY_S_NOTIFY_EMPTY", "0").strip() != "1" and any(x in text for x in empty_markers):
+        print("TELEGRAM_EMPTY_STATUS_SUPPRESSED")
+        return
+    return _ORIGINAL_NOTIFY(message)
+
+
+main.notify_telegram = _quiet_notify
 
 
 PROPERTY_RE = re.compile(
