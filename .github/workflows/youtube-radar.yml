@@ -29,8 +29,10 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Syntax check
-        run: python -m py_compile main.py youtube_radar.py youtube_comment_expansion.py youtube_radar_expanded.py
+      - name: Verify YouTube buyer gate
+        run: |
+          python -m py_compile main.py youtube_radar.py youtube_comment_expansion.py youtube_radar_expanded.py youtube_radar_guard.py test_youtube_radar_guard.py
+          python -m unittest -v test_youtube_radar_guard.py
       - name: Check YouTube Radar secret
         id: keycheck
         env:
@@ -43,7 +45,7 @@ jobs:
             echo "YOUTUBE_API_KEY=OK"
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Run YouTube Radar
+      - name: Run guarded YouTube Radar
         if: steps.keycheck.outputs.enabled == 'true'
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -60,7 +62,7 @@ jobs:
           YOUTUBE_FULL_REPLY_PAGES: "2"
           YOUTUBE_SCAN_OLD_THREAD_REPLIES: "1"
           YOUTUBE_LOOKBACK_HOURS: ${{ github.event.schedule == '25 5 * * *' && '24' || github.event.schedule == '45 4 * * 0' && '72' || '3' }}
-        run: python youtube_radar_expanded.py
+        run: python youtube_radar_guard.py
       - name: Notify workflow failure
         if: failure()
         env:
