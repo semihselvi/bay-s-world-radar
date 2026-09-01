@@ -1,13 +1,11 @@
-import os
+"""Retired duplicate North Cyprus hunter lane.
 
-import main
-import shard_runner
-import north_cyprus_recall  # configures maximum-recall buyer rules
-import north_cyprus_hunter_expansion  # verified public groups + free catalogs + wider single Exa query
-import north_cyprus_spam_guard  # multilingual buyer patterns + service/recruitment rejection last
+North Cyprus buyer monitoring is now handled by the dedicated Buyer Catcher and
+bay-s-lead-radar V5.5. Keeping this scheduled lane active created duplicate/noisy
+alerts from permissive recall rules. The workflow may still invoke this file, but
+it deliberately performs no scan and sends no Telegram message.
+"""
 
 
 if __name__ == "__main__":
-    os.environ["WORLD_RADAR_SHARD"] = "north_cyprus_hunter"
-    shard_runner.SHARD = "north_cyprus_hunter"
-    shard_runner.run()
+    print("NORTH_CYPRUS_HUNTER_RETIRED use Buyer Catcher + Lead Radar V5.5")
