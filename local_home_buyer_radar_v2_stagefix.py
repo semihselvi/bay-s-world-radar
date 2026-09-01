@@ -3,17 +3,21 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter, defaultdict
+from urllib.parse import parse_qs, quote_plus, unquote, urlparse
+
+from bs4 import BeautifulSoup
 
 import local_home_buyer_radar_v2_precision as precision
 import local_home_buyer_radar_v2 as radar
 
 
-VERSION = "2.2-source-precision-diagnostics"
+VERSION = "2.3-community-search-rescue"
 radar.VERSION = VERSION
 
 # Preserve the V2 destination-precision patch and then tighten stage detection.
 _ORIGINAL_CLASSIFY_V2 = radar.classify_v2
 _ORIGINAL_SERPER = radar.base._serper
+_ORIGINAL_BING = radar.base._bing
 
 # Covers transaction-ready equity/finance wording even when a currency amount sits
 # between the finance term and "available/present/approved" wording.
@@ -70,6 +74,19 @@ FORCED_USER_QUERIES = {
     ],
 }
 
+SEARCH_LOCALE = {
+    "germany_home": "de-DE",
+    "netherlands_home": "nl-NL",
+    "belgium_home": "nl-BE",
+    "switzerland_home": "de-CH",
+}
+DDG_REGION = {
+    "germany_home": "de-de",
+    "netherlands_home": "nl-nl",
+    "belgium_home": "be-nl",
+    "switzerland_home": "ch-de",
+}
+
 _DIAG_COUNTS = Counter()
 _DIAG_DOMAINS = Counter()
 _DIAG_SAMPLES = defaultdict(list)
@@ -77,7 +94,6 @@ _SERPER_WARNED = False
 
 
 def _active_evidence(requirements: dict) -> int:
-    """Count concrete search signals that indicate active house hunting."""
     keys = ("budget", "city", "financing", "timeframe", "bedrooms")
     return sum(1 for key in keys if requirements.get(key))
 
@@ -94,12 +110,6 @@ def _rotate(values: list[str], count: int, offset: int = 0) -> list[str]:
 
 
 def selected_queries(profile: str, limit: int, offset: int = 0) -> list[str]:
-    """Keep broad discovery but guarantee user/community sources.
-
-    offset=0 is the Bing lane. offset=3 is the Serper lane in radar.run(), so
-    Serper spends its smaller quota on user-source queries instead of repeating
-    the same four broad searches.
-    """
     core = list(radar.CORE_QUERIES[profile])
     forced = list(FORCED_USER_QUERIES[profile])
     rotating = [q for q in radar.ROTATING_QUERIES[profile] if q not in forced]
@@ -113,7 +123,6 @@ def selected_queries(profile: str, limit: int, offset: int = 0) -> list[str]:
     for q in core:
         if q not in chosen:
             chosen.append(q)
-    # Reserve roughly one third of Bing capacity for known user communities.
     forced_slots = min(len(forced), max(2, limit // 3))
     for q in forced[:forced_slots]:
         if q not in chosen:
@@ -124,6 +133,164 @@ def selected_queries(profile: str, limit: int, offset: int = 0) -> list[str]:
             if q not in chosen:
                 chosen.append(q)
     return chosen[:limit]
+
+
+def _expected_domain(query: str) -> str:
+    match = re.search(r"(?:^|\s)site:([^\s\"']+)", query or "", re.I)
+    if not match:
+        return ""
+    token = match.group(1).strip().lower().split("/", 1)[0]
+    return token.removeprefix("www.")
+
+
+def _domain_matches(url: str, expected: str) -> bool:
+    if not expected:
+        return True
+    domain = radar.base.domain_of(url)
+    return domain == expected or domain.endswith("." + expected)
+
+
+def _search_result_allowed(query: str, item: dict) -> bool:
+    url = str(item.get("url") or "")
+    if not url or not radar.base.user_source(url):
+        return False
+    expected = _expected_domain(query)
+    return _domain_matches(url, expected)
+
+
+def _full_query(query: str) -> str:
+    cutoff = (radar.base.now_utc() - radar.timedelta(hours=radar.LOOKBACK_HOURS)).date().isoformat()
+    return f"{query} after:{cutoff}"
+
+
+def _bing_html(query: str) -> list[dict]:
+    try:
+        response = radar.base.SESSION.get(
+            "https://www.bing.com/search",
+            params={
+                "q": _full_query(query),
+                "count": "20",
+                "setlang": SEARCH_LOCALE.get(radar.PROFILE, "en-US"),
+            },
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+                "Accept-Language": SEARCH_LOCALE.get(radar.PROFILE, "en-US") + ",en;q=0.8",
+            },
+            timeout=20,
+        )
+    except Exception as exc:
+        print("LOCAL_HOME_BING_HTML_EXCEPTION", query, exc)
+        return []
+    if response.status_code != 200:
+        print("LOCAL_HOME_BING_HTML_ERROR", response.status_code, query)
+        return []
+
+    out = []
+    soup = BeautifulSoup(response.text, "html.parser")
+    for node in soup.select("li.b_algo"):
+        link = node.select_one("h2 a")
+        if not link:
+            continue
+        href = str(link.get("href") or "").strip()
+        if not href:
+            continue
+        caption = node.select_one(".b_caption p") or node.select_one("p")
+        item = {
+            "source": "Bing HTML",
+            "url": href,
+            "title": radar.base.plain(link.get_text(" ", strip=True)),
+            "text": radar.base.plain(caption.get_text(" ", strip=True) if caption else ""),
+            "published": "",
+            "author": "",
+            "discovery_query": query,
+        }
+        if _search_result_allowed(query, item):
+            out.append(item)
+        if len(out) >= 10:
+            break
+    print(f"LOCAL_HOME_BING_HTML_OK profile={radar.PROFILE} query={query!r} user_results={len(out)}")
+    return out
+
+
+def _decode_ddg_url(href: str) -> str:
+    if not href:
+        return ""
+    parsed = urlparse(href)
+    if "duckduckgo.com" in parsed.netloc or href.startswith("/l/"):
+        values = parse_qs(parsed.query).get("uddg")
+        if values:
+            return unquote(values[0])
+    return href
+
+
+def _ddg_html(query: str) -> list[dict]:
+    try:
+        response = radar.base.SESSION.get(
+            "https://html.duckduckgo.com/html/",
+            params={"q": _full_query(query), "kl": DDG_REGION.get(radar.PROFILE, "wt-wt")},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+                "Accept-Language": SEARCH_LOCALE.get(radar.PROFILE, "en-US") + ",en;q=0.8",
+            },
+            timeout=20,
+        )
+    except Exception as exc:
+        print("LOCAL_HOME_DDG_EXCEPTION", query, exc)
+        return []
+    if response.status_code != 200:
+        print("LOCAL_HOME_DDG_ERROR", response.status_code, query)
+        return []
+
+    out = []
+    soup = BeautifulSoup(response.text, "html.parser")
+    for node in soup.select(".result"):
+        link = node.select_one("a.result__a")
+        if not link:
+            continue
+        href = _decode_ddg_url(str(link.get("href") or "").strip())
+        snippet = node.select_one(".result__snippet")
+        item = {
+            "source": "DuckDuckGo HTML",
+            "url": href,
+            "title": radar.base.plain(link.get_text(" ", strip=True)),
+            "text": radar.base.plain(snippet.get_text(" ", strip=True) if snippet else ""),
+            "published": "",
+            "author": "",
+            "discovery_query": query,
+        }
+        if _search_result_allowed(query, item):
+            out.append(item)
+        if len(out) >= 10:
+            break
+    print(f"LOCAL_HOME_DDG_OK profile={radar.PROFILE} query={query!r} user_results={len(out)}")
+    return out
+
+
+def _bing_community_rescue(query: str) -> list[dict]:
+    """Use Bing HTML first, then a no-key DDG rescue, then filtered RSS fallback.
+
+    Bing RSS was observed returning unrelated domains even for site:reddit.com and
+    site:gutefrage.net queries. Every result is now domain-enforced before it reaches
+    the buyer classifier.
+    """
+    merged = {}
+    for item in _bing_html(query):
+        merged[item["url"]] = item
+
+    # Search a second engine only when Bing HTML did not find enough actual user posts.
+    if len(merged) < 2:
+        for item in _ddg_html(query):
+            merged[item["url"]] = item
+
+    if not merged:
+        rss = _ORIGINAL_BING(query)
+        kept = [item for item in rss if _search_result_allowed(query, item)]
+        if kept:
+            print(f"LOCAL_HOME_BING_RSS_RESCUE profile={radar.PROFILE} query={query!r} user_results={len(kept)}")
+        for item in kept:
+            merged[item["url"]] = item
+
+    return list(merged.values())[:10]
 
 
 def _rejection_reason(profile: str, item: dict) -> str:
@@ -169,9 +336,9 @@ def _record_reject(profile: str, item: dict):
     _DIAG_COUNTS[reason] += 1
     domain = radar.base.domain_of(str(item.get("url") or "")) or "unknown"
     _DIAG_DOMAINS[domain] += 1
-    if len(_DIAG_SAMPLES[reason]) < 2:
+    if len(_DIAG_SAMPLES[reason]) < 3:
         title = radar.base.plain(str(item.get("title") or ""))[:110]
-        snippet = radar.base.plain(str(item.get("text") or ""))[:180]
+        snippet = radar.base.plain(str(item.get("text") or ""))[:220]
         query = str(item.get("discovery_query") or "")[:110]
         _DIAG_SAMPLES[reason].append((domain, title, snippet, query))
 
@@ -219,12 +386,11 @@ def _serper_with_diag(query: str):
     return _ORIGINAL_SERPER(query)
 
 
-# Patch the V2 engine so radar.run() uses the corrected classifier/query mix.
 radar.classify_v2 = classify_v2
 radar.selected_queries = selected_queries
+radar.base._bing = _bing_community_rescue
 radar.base._serper = _serper_with_diag
 
-# Expose the same public helpers used by tests/workflows.
 extract_requirements = radar.extract_requirements
 semantic_key = radar.semantic_key
 
