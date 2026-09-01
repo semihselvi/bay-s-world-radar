@@ -128,6 +128,29 @@ class LocalHomeBuyerRadarV2Tests(unittest.TestCase):
             self.assertIn(query, selected)
         self.assertEqual(len(selected), 10)
 
+    def test_site_query_rejects_wrong_domain(self):
+        item = self.item(
+            "Looking to buy an apartment in Germany.",
+            query='site:reddit.com/r/germany "buy apartment" Germany',
+            url="https://www.facebook.com/marketplace/"
+        )
+        self.assertFalse(radar._search_result_allowed(item["discovery_query"], item))
+
+    def test_site_query_accepts_expected_domain(self):
+        item = self.item(
+            "I am looking to buy an apartment in Berlin.",
+            query='site:reddit.com/r/germany "buy apartment" Germany',
+            url="https://www.reddit.com/r/germany/comments/abc/buying_apartment/"
+        )
+        self.assertTrue(radar._search_result_allowed(item["discovery_query"], item))
+
+    def test_ddg_redirect_decoder(self):
+        url = "https://duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.reddit.com%2Fr%2Fgermany%2Fcomments%2Fabc%2F"
+        self.assertEqual(
+            radar._decode_ddg_url(url),
+            "https://www.reddit.com/r/germany/comments/abc/"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
