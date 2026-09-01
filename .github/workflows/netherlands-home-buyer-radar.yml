@@ -23,9 +23,9 @@ jobs:
         run: pip install -r requirements.txt
       - name: Test local home buyer radar v2
         run: |
-          python -m py_compile local_home_buyer_radar.py local_home_buyer_radar_v2.py local_home_buyer_radar_v2_precision.py test_local_home_buyer_radar.py test_local_home_buyer_radar_v2.py
+          python -m py_compile local_home_buyer_radar.py local_home_buyer_radar_v2.py local_home_buyer_radar_v2_precision.py local_home_buyer_radar_v2_stagefix.py test_local_home_buyer_radar.py test_local_home_buyer_radar_v2.py
           python -m unittest -v test_local_home_buyer_radar.py test_local_home_buyer_radar_v2.py
-      - name: Run Netherlands home buyer radar v2
+      - name: Run Netherlands home buyer radar v2.1
         env:
           LOCAL_HOME_RADAR_PROFILE: netherlands_home
           LOCAL_HOME_LOOKBACK_HOURS: "48"
@@ -35,4 +35,4 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python local_home_buyer_radar_v2_precision.py
+        run: python local_home_buyer_radar_v2_stagefix.py
