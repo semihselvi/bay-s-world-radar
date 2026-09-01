@@ -1,0 +1,38 @@
+name: BAY-S Germany Home Buyer Radar
+
+"on":
+  workflow_dispatch:
+  schedule:
+    - cron: "32 6,12,18 * * *"  # Turkey: 09:32 / 15:32 / 21:32
+
+concurrency:
+  group: bay-s-germany-home-buyer-radar
+  cancel-in-progress: false
+
+jobs:
+  germany-home-buyer-radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Test local home buyer radar
+        run: |
+          python -m py_compile local_home_buyer_radar.py test_local_home_buyer_radar.py
+          python -m unittest -v test_local_home_buyer_radar.py
+      - name: Run Germany home buyer radar
+        env:
+          LOCAL_HOME_RADAR_PROFILE: germany_home
+          LOCAL_HOME_LOOKBACK_HOURS: "48"
+          LOCAL_HOME_BING_QUERY_LIMIT: "10"
+          LOCAL_HOME_SERPER_QUERY_LIMIT: "5"
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python local_home_buyer_radar.py
