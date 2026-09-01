@@ -1,0 +1,38 @@
+name: BAY-S Switzerland Buyer Radar
+
+"on":
+  workflow_dispatch:
+  schedule:
+    - cron: "42 6,12,18 * * *"  # Turkey: 09:42 / 15:42 / 21:42
+
+concurrency:
+  group: bay-s-switzerland-buyer-radar
+  cancel-in-progress: false
+
+jobs:
+  switzerland-buyer-radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Test audience radar
+        run: |
+          python -m py_compile audience_radar.py test_audience_radar.py
+          python -m unittest -v test_audience_radar.py
+      - name: Run Switzerland buyer radar
+        env:
+          AUDIENCE_RADAR_PROFILE: switzerland
+          AUDIENCE_LOOKBACK_HOURS: "48"
+          AUDIENCE_BING_QUERY_LIMIT: "10"
+          AUDIENCE_SERPER_QUERY_LIMIT: "6"
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python audience_radar.py
