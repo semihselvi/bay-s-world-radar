@@ -28,9 +28,14 @@ class YouTubeRadarGuardTests(unittest.TestCase):
         self.assertIsNotNone(lead)
         self.assertIn(lead["classification"], {"WARM", "HOT"})
 
-    def test_accepts_terse_ne_kadar_on_property_video(self):
-        lead = guard.classify_comment_guarded(self.item("Ne kadar?"))
-        self.assertIsNotNone(lead)
+    def test_rejects_bare_fiyat_comment(self):
+        self.assertIsNone(guard.classify_comment_guarded(self.item("Fiyat")))
+
+    def test_rejects_bare_price_question(self):
+        self.assertIsNone(guard.classify_comment_guarded(self.item("Price?")))
+
+    def test_rejects_terse_ne_kadar_without_property_reference(self):
+        self.assertIsNone(guard.classify_comment_guarded(self.item("Ne kadar?")))
 
     def test_rejects_generic_availability_phrase(self):
         lead = guard.classify_comment_guarded(self.item("Vaktiniz var mı, bir şey soracağım"))
