@@ -16,11 +16,22 @@ _base_classify = yr.classify_comment
 BROAD_REQUEST_PATTERNS = {r"ne kadar", r"var m[ıi]"}
 SAFE_REQUEST_PATTERNS = [p for p in yr.REQUEST_PATTERNS if p not in BROAD_REQUEST_PATTERNS]
 
+# A one/two-word price ping on a sales video is engagement, not enough evidence
+# that the commenter is a real buyer. Keep it out of Telegram alerts unless the
+# comment also names the property/unit or asks a fuller transactional question.
+BARE_PRICE_ONLY_RE = re.compile(
+    r"^\s*(?:"
+    r"fiyat(?:ı|i)?|price|how\s+much|ne\s+kadar|"
+    r"цена|какая\s+цена|сколько|сколько\s+стоит|"
+    r"preis|prix|prezzo|precio|prijs|cena"
+    r")\s*[?!.]*\s*$",
+    re.I,
+)
+
 TURKISH_PRICE_REQUEST_RE = re.compile(
     r"(?:"
     r"\b(?:fiyat|fiyatı|fiyati|ücret|ucret)\b.{0,30}\bne kadar\b|"
-    r"\b(?:daire|ev|villa|arsa|stüdyo|studyo|1\s*\+\s*[01]|2\s*\+\s*[01]|3\s*\+\s*[01])\b.{0,35}\bne kadar\b|"
-    r"\bne kadar\s*[?!.]*$"
+    r"\b(?:daire|ev|villa|arsa|stüdyo|studyo|1\s*\+\s*[01]|2\s*\+\s*[01]|3\s*\+\s*[01])\b.{0,35}\bne kadar\b"
     r")",
     re.I,
 )
@@ -34,6 +45,8 @@ TURKISH_AVAILABILITY_RE = re.compile(
 def _safe_actionable(text: str) -> bool:
     text = " ".join(str(text or "").split())
     if not text:
+        return False
+    if BARE_PRICE_ONLY_RE.fullmatch(text):
         return False
     if yr._matches(text, yr.STRONG_BUYER_PATTERNS):
         return True
