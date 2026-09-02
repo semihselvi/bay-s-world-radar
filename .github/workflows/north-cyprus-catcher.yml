@@ -23,10 +23,11 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Syntax check
+      - name: Syntax and buyer-only regression check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_cross_group.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_routing.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py
-      - name: Run expanded North Cyprus catcher
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_cross_group.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_routing.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_catcher_buyers_only.py test_north_cyprus_catcher_buyers_only.py
+          python -m unittest -q test_north_cyprus_catcher_buyers_only.py
+      - name: Run buyer-only North Cyprus catcher
         timeout-minutes: 25
         env:
           WORLD_LOOKBACK_HOURS: ${{ github.event_name == 'workflow_dispatch' && '24' || (github.event.schedule == '52 6 * * *' && '24' || '4') }}
@@ -66,7 +67,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
-        run: python north_cyprus_catcher_expanded.py
+        run: python north_cyprus_catcher_buyers_only.py
       - name: Notify catcher failure
         if: failure()
         env:
