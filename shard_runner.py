@@ -9,6 +9,7 @@ import hybrid_engine
 import source_crawler_v2
 from telegram_member_reader import collect_member_telegram
 from source_registry import DIRECT_INDEX_SOURCES, DIRECT_TOPIC_SOURCES, REDDIT_SUBREDDITS
+import world_cross_border_guard  # patches main.keep_candidate for west_europe only
 
 SHARD = os.getenv("WORLD_RADAR_SHARD", "telegram_member").strip().lower()
 
@@ -70,10 +71,13 @@ SHARDS = {
         "exa_calls": 1,
         "exa_query": (
             "past 7 days real person first-person discussion about buying property abroad, "
-            "investment property, second home or relocation with purchase intent from or in "
-            "UK Germany France Netherlands Belgium; budget deposit mortgage viewing offer "
-            "target area property type; Europe only; exclude US Australia property markets, "
-            "listings agents developers guides news"
+            "investment property, second home or relocation with purchase intent from UK, Germany, "
+            "France, Netherlands or Belgium. STRICT CROSS-BORDER ONLY: the person must explicitly "
+            "be buying outside their current/home country, buying abroad/overseas, or moving to "
+            "another country. Reject domestic house purchases inside the UK, Germany, France, "
+            "Netherlands or Belgium. Include budget deposit mortgage viewing offer target area "
+            "property type; Europe and Mediterranean destinations preferred; exclude US Australia "
+            "property markets, listings agents developers guides news."
         ),
         "exa_domains": [
             "reddit.com", "expatforum.com", "auswandererforum.de", "wiwi-treff.de",
