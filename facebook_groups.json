@@ -1,0 +1,154 @@
+{
+  "settings": {
+    "scroll_rounds": 2,
+    "scroll_pause_seconds": 3.5,
+    "max_posts_per_group": 10,
+    "max_age_hours": 72,
+    "sort_newest": true,
+    "notify_telegram": true,
+    "foreign_buyer_max_groups_per_run": 4,
+    "foreign_buyer_max_posts_per_search": 8
+  },
+  "groups": [
+    {
+      "name": "Zypern Immobilien - Deutsche Gruppe - Investieren - Auswandern",
+      "url": "https://www.facebook.com/groups/1242741933838908/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["DE"],
+      "require_north_signal": true,
+      "buyer_priority": "A+"
+    },
+    {
+      "name": "Auswandern nach Zypern - Steuern & Recht!",
+      "url": "https://www.facebook.com/groups/zyperncmc/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["DE"],
+      "require_north_signal": true,
+      "buyer_priority": "A+"
+    },
+    {
+      "name": "Северный Кипр - аренда, продажа, инвестиции",
+      "url": "https://www.facebook.com/groups/Kipr2/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["RU"],
+      "require_north_signal": false,
+      "buyer_priority": "A+"
+    },
+    {
+      "name": "СЕВЕРНЫЙ КИПР И ВСЕ О НЕМ",
+      "url": "https://www.facebook.com/groups/135183226532786/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["RU"],
+      "require_north_signal": false,
+      "buyer_priority": "A+"
+    },
+    {
+      "name": "Русский Север Кипр",
+      "url": "https://www.facebook.com/groups/RussianNCyprus/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["RU"],
+      "require_north_signal": false,
+      "buyer_priority": "A+"
+    },
+    {
+      "name": "North Cyprus Pulse",
+      "url": "https://www.facebook.com/groups/northcyprusheartbeat/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": false,
+      "buyer_priority": "A+"
+    },
+    {
+      "name": "Cypr Północny",
+      "url": "https://www.facebook.com/groups/cyprpolnocny/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["PL"],
+      "require_north_signal": false,
+      "buyer_priority": "A+"
+    },
+    {
+      "name": "Northern Cyprus Forum",
+      "url": "https://www.facebook.com/groups/323875321020382/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": false,
+      "buyer_priority": "A"
+    },
+    {
+      "name": "Moving to Cyprus - Expats Guide & Resources",
+      "url": "https://www.facebook.com/groups/1038724827396582/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": true,
+      "buyer_priority": "A"
+    },
+    {
+      "name": "North Cyprus, TRNC",
+      "url": "https://www.facebook.com/groups/312497126053963/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": false,
+      "buyer_priority": "A"
+    },
+    {
+      "name": "Advice for NORTH CYPRUS Expats",
+      "url": "https://www.facebook.com/groups/SatarimBilirsin/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": false,
+      "buyer_priority": "A"
+    },
+    {
+      "name": "North Cyprus Expats Group 2",
+      "url": "https://www.facebook.com/groups/1287822358267595/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": false,
+      "buyer_priority": "A"
+    },
+    {
+      "name": "Long Beach, Iskele, Bogaz, Expats",
+      "url": "https://www.facebook.com/groups/1016375339556751/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": false,
+      "buyer_priority": "A"
+    },
+    {
+      "name": "North Cyprus ExPats Group",
+      "url": "https://www.facebook.com/groups/1312006029164302/",
+      "enabled": true,
+      "demand_search": false,
+      "foreign_buyer_search": true,
+      "buyer_languages": ["EN"],
+      "require_north_signal": false,
+      "buyer_priority": "A"
+    }
+  ]
+}
