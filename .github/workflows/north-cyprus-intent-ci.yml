@@ -35,6 +35,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
       - name: Syntax check intent stack
         run: |
           python -m py_compile north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_selftest.py runtime_quality_guard.py north_cyprus_catcher_quality.py north_cyprus_recovery_quality.py test_runtime_quality_guard.py
