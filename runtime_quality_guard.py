@@ -8,10 +8,18 @@ from urllib.parse import urlsplit, urlunsplit
 # North Cyprus intent quality guard
 # ---------------------------------------------------------------------------
 
+# Listing-style Russian rental ads often start with "АРЕНДА" / "Долгосрочная
+# аренда" and then give a concrete property plus a price. Currency is commonly
+# written either before or after the amount ("€550" / "550€"). The separate
+# demand guard below prevents a genuine "Ищу ... аренду" request from being
+# treated as supply.
 _RENTAL_LISTING_RE = re.compile(
     r"(?:"
-    r"(?:^|\s)(?:долгосрочн\w*\s+)?аренд\w*\b.{0,220}(?:€|£|\$)\s*\d[\d\s,.]*.{0,80}(?:/\s*мес|\bмес(?:яц)?\b|посуточн\w*|/\s*сут|\bсутк\w*\b|\bдень\b)|"
-    r"(?:€|£|\$)\s*\d[\d\s,.]*.{0,120}\b(?:свободн\w*|доступн\w*)\b.{0,100}\b(?:аренд\w*|долгосрок\w*|посуточн\w*)\b"
+    r"(?:^|\s)(?:долгосрочн\w*\s+)?аренд\w*\b.{0,320}"
+    r"(?:[€£$]\s*\d[\d\s,.]*|\d[\d\s,.]*\s*[€£$])|"
+    r"(?:[€£$]\s*\d[\d\s,.]*|\d[\d\s,.]*\s*[€£$]).{0,180}"
+    r"(?:\bпосуточн\w*\b|/\s*мес\b|\bмесяц\b|\bсутк\w*\b|"
+    r"\bсвободн\w*\b|\bдоступн\w*\b).{0,180}\b(?:аренд\w*|долгосрок\w*)\b"
     r")",
     re.I | re.S,
 )
@@ -89,7 +97,7 @@ def install_nc_intent_guard() -> None:
             )
 
         # Listing-style rental copy can contain "долгосрочная аренда" and used
-        # to look like tenant intent. Price + term/availability with no demand
+        # to look like tenant intent. Price + listing wording with no demand
         # verb is supply and must be routed away from buyer/tenant alerts.
         if property_signal and _RENTAL_LISTING_RE.search(own) and not _RENTAL_DEMAND_RE.search(own):
             return nc._result(
