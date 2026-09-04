@@ -30,7 +30,8 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_cross_group.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_routing.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_recovery.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_cross_group.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_routing.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_recovery.py runtime_quality_guard.py north_cyprus_recovery_quality.py test_runtime_quality_guard.py
+          python test_runtime_quality_guard.py
       - name: Run recovery radar
         env:
           NC_RECOVERY_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.days || (github.event.schedule == '32 13 * * 0' && '30' || '7') }}
@@ -59,7 +60,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
-        run: python north_cyprus_recovery.py
+        run: python north_cyprus_recovery_quality.py
       - name: Notify failure
         if: failure()
         env:
