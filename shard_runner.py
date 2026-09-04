@@ -151,6 +151,8 @@ def collect_direct(spec):
         if source["name"] not in spec["index_names"]:
             continue
         found = source_crawler_v2.scrape_index_source(source)
+        for item in found:
+            item["source_bucket"] = f"shard_{SHARD}_direct"
         items.extend(found)
         counts[source["name"]] = len(found)
 
