@@ -5,7 +5,7 @@ import re
 import main
 
 
-VERSION = "1.0-west-europe-cross-border-only"
+VERSION = "1.1-west-europe-cross-border-only"
 
 # WORLD west_europe is for people crossing borders / buying abroad. Domestic
 # home-purchase conversations are handled by separate LOCAL buyer radars and
@@ -24,8 +24,9 @@ EXPLICIT_CROSS_BORDER_RE = re.compile(
 )
 
 # High-value foreign destinations for the west-Europe audience. A destination
-# by itself is not enough; it must sit close to a purchase / second-home / move
-# phrase so page chrome and unrelated comments cannot create a lead.
+# by itself is not enough; it must be in the same sentence/phrase as a purchase,
+# second-home or relocation action. That prevents unrelated navigation/footer
+# country links from converting a domestic buyer into a WORLD lead.
 DESTINATION_RE = (
     r"(?:north(?:ern)?\s+cyprus|cyprus|spain|portugal|italy|greece|malta|"
     r"montenegro|croatia|turkey|türkiye|dubai|uae|united\s+arab\s+emirates|"
@@ -37,23 +38,23 @@ BUY_TO_DEST_RE = re.compile(
     rf"(?:buy(?:ing)?|purchase|purchasing|looking\s+to\s+buy|want(?:ing)?\s+to\s+buy|"
     rf"consider(?:ing)?\s+buying|second\s+home|holiday\s+home|investment\s+property|"
     rf"relocat(?:e|ing)|mov(?:e|ing)|emigrat(?:e|ing))"
-    rf".{{0,120}}\b{DESTINATION_RE}\b",
-    re.I | re.S,
+    rf"[^.!?\n]{{0,120}}\b{DESTINATION_RE}\b",
+    re.I,
 )
 
 DEST_TO_BUY_RE = re.compile(
-    rf"\b{DESTINATION_RE}\b.{{0,120}}(?:buy(?:ing)?|purchase|purchasing|"
+    rf"\b{DESTINATION_RE}\b[^.!?\n]{{0,120}}(?:buy(?:ing)?|purchase|purchasing|"
     rf"second\s+home|holiday\s+home|investment\s+property|relocat(?:e|ing)|"
     rf"mov(?:e|ing)|emigrat(?:e|ing))",
-    re.I | re.S,
+    re.I,
 )
 
 
 def _primary_text(item: dict) -> str:
-    """Use the post title + opening body only, not a whole forum page."""
+    """Use the post title + opening body only, not an unlimited forum page."""
     title = str(item.get("title") or "")
     body = str(item.get("text") or "")[:4500]
-    return f"{title} {body}".lower()
+    return f"{title}. {body}".lower()
 
 
 def cross_border_signal(item: dict) -> bool:
