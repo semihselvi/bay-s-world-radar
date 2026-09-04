@@ -33,8 +33,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Syntax check
-        run: python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py world_hard_filters.py
+      - name: Syntax and reviewed false-positive regressions
+        run: |
+          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py shard_runner_quality.py runtime_quality_guard.py test_runtime_quality_guard.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py world_hard_filters.py world_cross_border_guard.py
+          python test_runtime_quality_guard.py
       - name: Preflight required secrets
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -71,7 +73,7 @@ jobs:
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
           WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "100"
           WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "40"
-        run: python shard_runner.py
+        run: python shard_runner_quality.py
       - name: Notify failure
         if: failure()
         env:
@@ -163,7 +165,7 @@ jobs:
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
           WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "80"
           WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "30"
-        run: python shard_runner.py
+        run: python shard_runner_quality.py
 
   evening-shards:
     if: github.event.schedule == '7 18 * * *'
@@ -204,4 +206,4 @@ jobs:
           WORLD_TELEGRAM_MEMBER_CHATS: ${{ secrets.WORLD_TELEGRAM_MEMBER_CHATS }}
           WORLD_TELEGRAM_MEMBER_MAX_DIALOGS: "80"
           WORLD_TELEGRAM_MEMBER_MAX_MESSAGES: "30"
-        run: python shard_runner.py
+        run: python shard_runner_quality.py
