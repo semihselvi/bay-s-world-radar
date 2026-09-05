@@ -24,6 +24,14 @@ _RENTAL_LISTING_RE = re.compile(
     re.I | re.S,
 )
 
+# Some supply ads do not contain a price at all. A post that literally opens as
+# "Аренда <property>" and has no renter-demand verb is still inventory/supply.
+# This exact pattern caused a reviewed false positive for Four Seasons.
+_RENTAL_SUPPLY_STYLE_RE = re.compile(
+    r"^\s*(?:(?:долгосрочн\w*|посуточн\w*)\s+)?аренд\w*\b",
+    re.I | re.S,
+)
+
 _RENTAL_DEMAND_RE = re.compile(
     r"(?:"
     r"\bищу\b|\bищем\b|\bхочу\s+снять\b|\bхотим\s+снять\b|\bсниму\b|\bснимем\b|"
@@ -37,6 +45,7 @@ _SHORT_STAY_DEMAND_RE = re.compile(
     r"(?:"
     r"\bна\s+\d+\s+(?:день|дня|дней|сутки|суток|ночь|ночи|ночей|недел\w*)\b|"
     r"\bна\s+сутки\b|\bна\s+один\s+день\b|\bпосуточн\w*\b|"
+    r"\bс\s+\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\s+по\s+\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b|"
     r"\bfor\s+\d+\s+(?:day|days|night|nights|week|weeks)\b|"
     r"\bfor\s+one\s+(?:day|night|week)\b|\bshort[\s-]?term\b|"
     r"\b1\s+g[üu]nl[üu][ğg][üu]ne\b|\b\d+\s+g[üu]n(?:l[üu][ğg][üu]ne)?\b"
@@ -97,9 +106,13 @@ def install_nc_intent_guard() -> None:
             )
 
         # Listing-style rental copy can contain "долгосрочная аренда" and used
-        # to look like tenant intent. Price + listing wording with no demand
-        # verb is supply and must be routed away from buyer/tenant alerts.
-        if property_signal and _RENTAL_LISTING_RE.search(own) and not _RENTAL_DEMAND_RE.search(own):
+        # to look like tenant intent. Price/listing wording with no demand verb
+        # is supply and must be routed away from buyer/tenant alerts.
+        if (
+            property_signal
+            and (_RENTAL_LISTING_RE.search(own) or _RENTAL_SUPPLY_STYLE_RE.search(own))
+            and not _RENTAL_DEMAND_RE.search(own)
+        ):
             return nc._result(
                 nc.OWNER,
                 [],
@@ -108,8 +121,8 @@ def install_nc_intent_guard() -> None:
                 req,
             )
 
-        # Explicit short-stay demand such as "Ищу дом ... на 1 день" is rental,
-        # not ambiguous purchase demand.
+        # Explicit short-stay demand such as "Ищу дом ... на 1 день" or a
+        # concrete date range is rental, not ambiguous purchase demand.
         if (
             property_signal
             and nc_signal
