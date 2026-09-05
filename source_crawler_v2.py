@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
 
@@ -28,9 +29,22 @@ BAD_PATH_BITS = (
     "/search", "/tags/", "/users/", "javascript:", "mailto:",
 )
 
+# Forum indexes often expose the same thread twice: once with the actual thread
+# title and once with a navigation link such as "Last post 17 hours ago by X".
+# The latter is not a separate lead and can make a moderator/provider look like
+# the buyer. Keep only the real thread-title link.
+_INDEX_NOISE_TITLE_RE = re.compile(
+    r"^\s*(?:last\s+post|latest\s+post|go\s+to\s+(?:the\s+)?last\s+post)\b",
+    re.I,
+)
+
 
 def clean_text(value):
     return hybrid_engine.clean_text(value)
+
+
+def _is_index_noise_title(title):
+    return bool(_INDEX_NOISE_TITLE_RE.search(str(title or "")))
 
 
 def _best_published(soup):
@@ -87,10 +101,16 @@ def extract_page_item(url, source_name, title="", source_bucket="direct_topic", 
         body = soup.select_one("article") or soup.select_one("main") or soup.body or soup
         text = clean_text(body.get_text(" ", strip=True))[:14000]
 
+        page_heading = soup.select_one("h1")
+        page_title = clean_text(page_heading.get_text(" ", strip=True)) if page_heading else ""
+        if not page_title:
+            page_title = clean_text(soup.title.string if soup.title else "")
+        selected_title = page_title if _is_index_noise_title(title) else (title or page_title)
+
         return {
             "source": source_name,
             "url": response.url,
-            "title": title or clean_text(soup.title.string if soup.title else ""),
+            "title": selected_title,
             "text": text,
             "published": published,
             "author": author,
@@ -146,6 +166,8 @@ def scrape_index_source(source):
             if not _allowed_link(source, href):
                 continue
             if len(title) < 5:
+                continue
+            if _is_index_noise_title(title):
                 continue
             if href not in [x[0] for x in links]:
                 links.append((href, title))
