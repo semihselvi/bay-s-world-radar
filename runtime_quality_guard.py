@@ -186,6 +186,35 @@ _COMMERCIAL_PROVIDER_RE = re.compile(
     re.I,
 )
 
+# Forum pages mix the user's post with site-generated recommendation modules.
+# Those modules contain phrases such as "Buying a property in Italy" and were
+# being mistaken for the user's own purchase intent. Only the thread-local text
+# before those modules is allowed to qualify a WORLD lead.
+_FORUM_BOILERPLATE_MARKERS = (
+    "see also",
+    "looking for your dream home",
+    "essential services for your expat journey",
+    "other discussions on housing",
+    "articles to help you in your expat project",
+    "find more topics on the",
+    "further reading",
+)
+
+
+def _lead_local_primary(item: dict) -> str:
+    title = str(item.get("title") or "")
+    body = str(item.get("text") or "")
+    folded = body.casefold()
+    cut = len(body)
+    for marker in _FORUM_BOILERPLATE_MARKERS:
+        idx = folded.find(marker)
+        # Avoid clipping a genuine very short user sentence that happens to use
+        # the words "see also". Forum modules occur after navigation/post text.
+        if idx >= 250:
+            cut = min(cut, idx)
+    body = body[:cut][:1800]
+    return f"{title}. {body}"
+
 
 def canonical_world_url(url: str) -> str:
     """Collapse forum post anchors so one thread cannot notify twice."""
@@ -213,8 +242,7 @@ def world_target_rejection(item: dict) -> str:
     bucket = str(item.get("source_bucket") or "").casefold()
     title = str(item.get("title") or "")
     author = str(item.get("author") or "")
-    body = str(item.get("text") or "")[:2200]
-    primary = f"{title}. {body}"
+    primary = _lead_local_primary(item)
 
     if "shard_north_cyprus_cis_" in bucket:
         if not _NC_TARGET_RE.search(primary):
