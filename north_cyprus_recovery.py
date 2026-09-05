@@ -129,7 +129,9 @@ def run():
     print("NC_RECOVERY_COMPLETE", json.dumps({"days": days, "raw": len(raw_items), "stitched": len(stitched), "accepted_people": len(accepted), "new": len(new), "stats": stats}, ensure_ascii=False))
 
     if new:
-        lines = [f"🕰 BAY-S NC RECOVERY {days}G | {len(new)} GERÇEK BUYER/TENANT"]
+        buyer_count = sum(1 for lead in new if lead.get("intent_class") == "BUYER")
+        tenant_count = sum(1 for lead in new if lead.get("intent_class") == "TENANT")
+        lines = [f"🕰 BAY-S NC RECOVERY {days}G | {buyer_count} BUYER + {tenant_count} TENANT"]
         for lead in new[:12]:
             author = lead.get("author") or "kullanıcı"
             place = lead.get("telegram_chat") or lead.get("title") or lead.get("source") or ""
