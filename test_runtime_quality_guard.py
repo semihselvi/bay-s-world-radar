@@ -6,6 +6,7 @@ from runtime_quality_guard import (
     install_world_shard_guard,
     world_target_rejection,
 )
+from source_crawler_v2 import _is_index_noise_title
 
 install_nc_intent_guard()
 
@@ -102,11 +103,31 @@ def test_world_cases():
         "https://www.expat.com/en/forum/europe/italy/1115893-planning.html#6136844"
     ) == "https://www.expat.com/en/forum/europe/italy/1115893-planning.html"
 
+    # Index navigation links are not leads and used to make the last replier
+    # (including moderators/providers) look like the prospect.
+    assert _is_index_noise_title("Last post 17 hours ago by La Relocation Group")
+    assert _is_index_noise_title("Last post 14 hours ago by Bhavna")
+    assert not _is_index_noise_title("Planning My First Long Stay in Italy – Looking for Advice")
+
     assert world_target_rejection({
         "source_bucket": "shard_north_cyprus_cis_direct",
         "title": "Chinese speakers in Bursa",
         "text": "I am looking to buy an apartment in Bursa and would like advice.",
         "author": "user",
+    }) == "north_cyprus_cis_off_target"
+
+    # Exact reviewed Bursa-style page: fresh forum activity plus unrelated site
+    # modules must not turn a Turkey networking thread into a North Cyprus lead.
+    assert world_target_rejection({
+        "source_bucket": "shard_north_cyprus_cis_direct",
+        "title": "Chinese speakers in Bursa",
+        "text": (
+            "Chinese speakers in Bursa Hi guys, This is Fatih from Bursa. "
+            "Now looking for Chinese friends to exchange language and culture. "
+            "See also Living in Türkiye Buying property in Türkiye Relocating to Türkiye."
+        ),
+        "author": "Bhavna",
+        "url": "https://www.expat.com/en/forum/middle-east/turkey/bursa/716278-chinese-speakers-in-bursa.html#6136861",
     }) == "north_cyprus_cis_off_target"
 
     assert world_target_rejection({
@@ -121,6 +142,23 @@ def test_world_cases():
         "title": "Planning My First Long Stay in Italy – Looking for Advice",
         "text": "I am planning a long stay in Italy and would like advice about where to live and accommodation.",
         "author": "user",
+    }) == "golden_south_no_property_purchase"
+
+    # Expat pages append recommendation modules such as "Buying a property in
+    # Italy" after the actual post. That site copy must never count as buyer
+    # intent for a generic long-stay/advice thread.
+    assert world_target_rejection({
+        "source_bucket": "shard_golden_south_direct",
+        "title": "Planning My First Long Stay in Italy – Looking for Advice",
+        "text": (
+            "Planning My First Long Stay in Italy Looking for Advice Hello everyone! "
+            "I'm new to the community and am currently planning a long-term stay in Italy. "
+            "I'd love advice from locals and expats about which city to choose and how to integrate. "
+            + ("General relocation preparation and local culture questions. " * 5)
+            + "See also Real estate listings in Italy Buying a property in Italy Guide."
+        ),
+        "author": "user",
+        "url": "https://www.expat.com/en/forum/europe/italy/1115893-planning-my-first-long-stay-in-italy-looking-for-advice.html#6136844",
     }) == "golden_south_no_property_purchase"
 
     assert world_target_rejection({
@@ -154,6 +192,19 @@ def test_world_install_integration():
     keep, reason = main.keep_candidate(item, now - timedelta(hours=24))
     if keep or reason != "north_cyprus_cis_off_target":
         raise AssertionError((keep, reason))
+
+    base = {
+        "source": "Expat.com Italy",
+        "source_bucket": "shard_golden_south_direct",
+        "title": "Buying a home in Italy",
+        "text": "I want to buy an apartment in Italy.",
+        "published": now.isoformat(),
+        "author": "buyer",
+    }
+    with_anchor = dict(base, url="https://www.expat.com/en/forum/europe/italy/123-buying.html#999")
+    without_anchor = dict(base, url="https://www.expat.com/en/forum/europe/italy/123-buying.html")
+    if main.dedupe_key(with_anchor) != main.dedupe_key(without_anchor):
+        raise AssertionError("forum fragment must not create a second lead")
 
 
 if __name__ == "__main__":
