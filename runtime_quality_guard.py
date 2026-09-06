@@ -26,9 +26,33 @@ _RENTAL_LISTING_RE = re.compile(
 
 # Some supply ads do not contain a price at all. A post that literally opens as
 # "Аренда <property>" and has no renter-demand verb is still inventory/supply.
-# This exact pattern caused a reviewed false positive for Four Seasons.
 _RENTAL_SUPPLY_STYLE_RE = re.compile(
     r"^\s*(?:(?:долгосрочн\w*|посуточн\w*)\s+)?аренд\w*\b",
+    re.I | re.S,
+)
+
+# A common listing format puts the price before the rental label/terms, e.g.
+# "3+1 villa ... 1800£, условия 1 аренда 2 депозита ... Долгосрочная аренда".
+# That is supply even though it does not begin with the word "Аренда".
+_RENTAL_PRICE_OFFER_RE = re.compile(
+    r"(?:[€£$]\s*\d[\d\s,.]*|\d[\d\s,.]*\s*[€£$]).{0,280}(?:"
+    r"\bдолгосрочн\w*\s+аренд\w*\b|"
+    r"\bуслови\w*\b.{0,140}\b(?:депозит\w*|комисси\w*)\b|"
+    r"\b(?:депозит\w*|комисси\w*)\b.{0,140}\bаренд\w*\b"
+    r")",
+    re.I | re.S,
+)
+
+# Property-management pitches can mention apartments, rent and Long Beach and
+# therefore look like tenant intent. They are service-provider messages, not
+# buyer/tenant leads.
+_PROPERTY_MANAGEMENT_SERVICE_RE = re.compile(
+    r"(?:"
+    r"\bвозьму\b.{0,120}\b(?:квартир\w*|апартамент\w*|недвижимост\w*)\b.{0,100}\bв\s+управлени\w*\b|"
+    r"\b(?:управлени\w*\s+(?:квартир\w*|апартамент\w*|недвижимост\w*)|управляю\s+недвижимост\w*)\b|"
+    r"\bproperty\s+management\b|\btake\s+your\s+(?:apartment|property)\s+under\s+management\b|"
+    r"\bm[üu]lk\s+y[öo]netimi\b|\bevinizi\s+y[öo]net(?:irim|iyoruz)\b"
+    r")",
     re.I | re.S,
 )
 
@@ -105,12 +129,26 @@ def install_nc_intent_guard() -> None:
                 req,
             )
 
+        # Property-management advertising is neither buyer nor tenant demand.
+        if property_signal and _PROPERTY_MANAGEMENT_SERVICE_RE.search(own):
+            return nc._result(
+                nc.UNKNOWN,
+                [],
+                96,
+                ["property_management_service"],
+                req,
+            )
+
         # Listing-style rental copy can contain "долгосрочная аренда" and used
         # to look like tenant intent. Price/listing wording with no demand verb
         # is supply and must be routed away from buyer/tenant alerts.
         if (
             property_signal
-            and (_RENTAL_LISTING_RE.search(own) or _RENTAL_SUPPLY_STYLE_RE.search(own))
+            and (
+                _RENTAL_LISTING_RE.search(own)
+                or _RENTAL_SUPPLY_STYLE_RE.search(own)
+                or _RENTAL_PRICE_OFFER_RE.search(own)
+            )
             and not _RENTAL_DEMAND_RE.search(own)
         ):
             return nc._result(
