@@ -7,6 +7,14 @@ on:
         description: "scan | discover_scan | deep_scan"
         required: false
         default: "scan"
+  push:
+    paths:
+      - "youtube_radar.py"
+      - "youtube_comment_expansion.py"
+      - "youtube_radar_expanded.py"
+      - "youtube_radar_guard.py"
+      - "test_youtube_radar_guard.py"
+      - ".github/workflows/youtube-radar.yml"
   schedule:
     # Turkey time UTC+3
     - cron: "25 5 * * *"
@@ -14,7 +22,7 @@ on:
     - cron: "45 4 * * 0"
 
 concurrency:
-  group: bay-s-youtube-radar-${{ github.event.schedule || 'manual' }}
+  group: bay-s-youtube-radar-${{ github.event.schedule || github.event_name }}
   cancel-in-progress: false
 
 jobs:
@@ -34,6 +42,7 @@ jobs:
           python -m py_compile main.py youtube_radar.py youtube_comment_expansion.py youtube_radar_expanded.py youtube_radar_guard.py test_youtube_radar_guard.py
           python -m unittest -v test_youtube_radar_guard.py
       - name: Check YouTube Radar secret
+        if: github.event_name != 'push'
         id: keycheck
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -46,7 +55,7 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Run guarded YouTube Radar
-        if: steps.keycheck.outputs.enabled == 'true'
+        if: github.event_name != 'push' && steps.keycheck.outputs.enabled == 'true'
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -64,7 +73,7 @@ jobs:
           YOUTUBE_LOOKBACK_HOURS: ${{ github.event.schedule == '25 5 * * *' && '24' || github.event.schedule == '45 4 * * 0' && '72' || '3' }}
         run: python youtube_radar_guard.py
       - name: Notify workflow failure
-        if: failure()
+        if: failure() && github.event_name != 'push'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
