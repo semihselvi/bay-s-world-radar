@@ -45,6 +45,18 @@ class YouTubeRadarGuardTests(unittest.TestCase):
         lead = guard.classify_comment_guarded(self.item("2+1 satılık daire var mı?"))
         self.assertIsNotNone(lead)
 
+    def test_rejects_existing_caesar_owner_residency_question(self):
+        lead = guard.classify_comment_guarded(self.item(
+            "Скажите пожалуйста, подойдет ли квартира студия (пока еще в рассрочке, в комплексе Цезарь) для оформления ВНЖ на семью из 4 человек?"
+        ))
+        self.assertIsNone(lead)
+
+    def test_does_not_block_fresh_buyer_only_because_of_residency_goal(self):
+        lead = guard.classify_comment_guarded(self.item(
+            "Хочу купить студию в Caesar Resort. Какая цена и подойдет ли она для ВНЖ?"
+        ))
+        self.assertIsNotNone(lead)
+
 
 if __name__ == "__main__":
     unittest.main()
