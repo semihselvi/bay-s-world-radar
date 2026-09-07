@@ -41,10 +41,41 @@ TURKISH_AVAILABILITY_RE = re.compile(
     re.I,
 )
 
+# Existing owners / buyers asking whether a property they already bought or are
+# still paying off can be used for residency are after-sale / residency leads,
+# not fresh property buyers. Keep this narrow: residency context plus explicit
+# existing-purchase evidence must both be present.
+RESIDENCY_CONTEXT_RE = re.compile(
+    r"(?:\bвнж\b|\bвид\s+на\s+жительство\b|\bоформлени\w*\s+внж\b|"
+    r"\bresidence\s+permit\b|\bresidency\b|\boturma\s+izn\w*\b)",
+    re.I,
+)
+
+EXISTING_PURCHASE_RE = re.compile(
+    r"(?:"
+    r"\b(?:купил(?:а|и)?|приобр[её]л(?:а|и)?|у\s+меня\s+есть|у\s+нас\s+есть)\b.{0,120}"
+    r"(?:квартир\w*|апартамент\w*|студи\w*|дом\w*|вилл\w*)|"
+    r"(?:квартир\w*|апартамент\w*|студи\w*|дом\w*|вилл\w*).{0,120}"
+    r"(?:\bв\s+рассрочк\w*\b|\bещ[её]\s+в\s+рассрочк\w*\b|\bпока\s+ещ[её]\s+в\s+рассрочк\w*\b)|"
+    r"\balready\s+(?:bought|purchased|own)\b.{0,120}(?:apartment|property|home|house|villa)|"
+    r"\b(?:my|our)\s+(?:apartment|property|home|house|villa)\b.{0,120}\b(?:installments?|mortgage|residence\s+permit|residency)\b|"
+    r"\b(?:ald[ıi]m|sat[ıi]n\s+ald[ıi]k|sahibim)\b.{0,120}(?:daire|ev|villa|m[üu]lk)|"
+    r"(?:daire|ev|villa|m[üu]lk).{0,120}\b(?:taksit(?:leri)?\s+devam|taksitte|taksitli)\b"
+    r")",
+    re.I | re.S,
+)
+
+
+def _is_post_purchase_residency(text: str) -> bool:
+    text = " ".join(str(text or "").split())
+    return bool(RESIDENCY_CONTEXT_RE.search(text) and EXISTING_PURCHASE_RE.search(text))
+
 
 def _safe_actionable(text: str) -> bool:
     text = " ".join(str(text or "").split())
     if not text:
+        return False
+    if _is_post_purchase_residency(text):
         return False
     if BARE_PRICE_ONLY_RE.fullmatch(text):
         return False
