@@ -1,4 +1,4 @@
-from runtime_quality_guard import install_nc_intent_guard
+from runtime_quality_guard_batch import install_nc_intent_guard
 
 install_nc_intent_guard()
 
