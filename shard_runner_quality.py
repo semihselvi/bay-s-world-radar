@@ -1,4 +1,4 @@
-from runtime_quality_guard import install_world_shard_guard
+from runtime_quality_guard_batch import install_world_shard_guard
 
 install_world_shard_guard()
 
