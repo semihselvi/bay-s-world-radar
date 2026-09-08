@@ -34,12 +34,21 @@ _NON_PROPERTY_GOODS_RE = re.compile(
     re.I | re.S,
 )
 
+# Purchase object may be written as a property noun, a unit configuration (1+1),
+# or a well-known residential project. This still keeps the object close to the
+# purchase verb so Russian "дома" meaning "at home" cannot fake a house purchase.
+_RU_PROPERTY_OBJECT = (
+    r"(?:недвижимост\w*|квартир\w*|апартамент\w*|вилл\w*|"
+    r"дом(?:\b|ом\b|у\b|е\b)|участ\w*|земл\w*|жиль[её]\w*|"
+    r"[0-6]\s*\+\s*[0-3]|caesar\s+resort|royal\s+sun(?:\s+elite)?|"
+    r"grand\s+sapphire|four\s+seasons|riverside\s+life|isatis|elysium)"
+)
+
 _DIRECT_PROPERTY_BUY_RE = re.compile(
-    r"(?:"
-    r"\bкуплю\b.{0,90}\b(?:недвижимост\w*|квартир\w*|апартамент\w*|вилл\w*|"
-    r"дом(?:\b|ом\b|у\b|е\b)|участ\w*|земл\w*|жиль[её]\w*)\b|"
-    r"\b(?:хочу|хотим|планирую|планируем|рассматриваю|рассматриваем|думаю|думаем)\b"
-    r".{0,90}\b(?:купить|покупк\w*)\b|"
+    rf"(?:"
+    rf"\bкуплю\b.{{0,110}}\b{_RU_PROPERTY_OBJECT}\b|"
+    rf"\b(?:хочу|хотим|планирую|планируем|рассматриваю|рассматриваем|думаю|думаем)\b"
+    rf".{{0,90}}\b(?:купить|покупк\w*)\b(?:.{{0,100}}\b{_RU_PROPERTY_OBJECT}\b)?|"
     r"\b(?:looking|planning|want(?:ing)?|ready|considering)\b.{0,70}\b(?:buy|buying|purchase)\b|"
     r"\b(?:sat[ıi]n\s+almak\s+istiyorum|sat[ıi]n\s+alaca[ğg][ıi]m|ev\s+almak\s+istiyorum|daire\s+almak\s+istiyorum)\b"
     r")",
@@ -166,4 +175,3 @@ def install_world_shard_guard() -> None:
 
 
 canonical_world_url = base.canonical_world_url
-
