@@ -14,9 +14,11 @@ on:
       - "north_cyprus_recovery.py"
       - "north_cyprus_intent_selftest.py"
       - "runtime_quality_guard.py"
+      - "runtime_quality_guard_batch.py"
       - "north_cyprus_catcher_quality.py"
       - "north_cyprus_recovery_quality.py"
       - "test_runtime_quality_guard.py"
+      - "test_runtime_quality_guard_batch.py"
       - ".github/workflows/north-cyprus-intent-ci.yml"
 
 permissions:
@@ -40,8 +42,9 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax check intent stack
         run: |
-          python -m py_compile north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_selftest.py runtime_quality_guard.py north_cyprus_catcher_quality.py north_cyprus_recovery_quality.py test_runtime_quality_guard.py
+          python -m py_compile north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_selftest.py runtime_quality_guard.py runtime_quality_guard_batch.py north_cyprus_catcher_quality.py north_cyprus_recovery_quality.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py
       - name: Intent regression self-test
         run: |
           python north_cyprus_intent_selftest.py
           python test_runtime_quality_guard.py
+          python test_runtime_quality_guard_batch.py
