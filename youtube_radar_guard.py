@@ -71,6 +71,17 @@ def _is_post_purchase_residency(text: str) -> bool:
     return bool(RESIDENCY_CONTEXT_RE.search(text) and EXISTING_PURCHASE_RE.search(text))
 
 
+def _reply_chain_is_after_sale(item: dict) -> bool:
+    # Replies inherit the top-level comment via youtube_comment_expansion. This is
+    # essential for follow-ups such as "does a studio work for 4 people / what
+    # about titles?" where the parent already says the Caesar studio is on
+    # installments and the question is about residency.
+    combined = " ".join(
+        str(x or "") for x in (item.get("reply_context"), item.get("text"))
+    )
+    return _is_post_purchase_residency(combined)
+
+
 def _safe_actionable(text: str) -> bool:
     text = " ".join(str(text or "").split())
     if not text:
@@ -92,6 +103,8 @@ def _safe_actionable(text: str) -> bool:
 
 def classify_comment_guarded(item):
     comment = " ".join(str(item.get("text", "")).split())
+    if _reply_chain_is_after_sale(item):
+        return None
     if not _safe_actionable(comment):
         return None
     return _base_classify(item)
