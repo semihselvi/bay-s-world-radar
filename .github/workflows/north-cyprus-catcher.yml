@@ -60,6 +60,7 @@ jobs:
           NC_OPEN_WEB_MODE: ${{ github.event.schedule == '52 6 * * *' && 'full' || 'pulse' }}
           NC_REDDIT_RSS_FEED_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '14' || '6' }}
           NC_BING_RSS_QUERY_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '20' || '7' }}
+          NC_FACEBOOK_GROUP_QUERY_LIMIT: ${{ github.event.schedule == '52 6 * * *' && '8' || '4' }}
           NC_DYNAMIC_COMMUNITY_LIMIT: "30"
           NC_CATCHER_FORUM: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
