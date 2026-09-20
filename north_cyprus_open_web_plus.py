@@ -1,3 +1,4 @@
+import os
 from urllib.parse import quote_plus
 
 import north_cyprus_open_web as base
@@ -170,10 +171,10 @@ _original_collect_open_web = base.collect_open_web
 
 
 def collect_joined_facebook_index():
-    mode = __import__("os").getenv("NC_OPEN_WEB_MODE", "pulse").strip().lower()
+    mode = os.getenv("NC_OPEN_WEB_MODE", "pulse").strip().lower()
     default_limit = 8 if mode == "full" else 4
     try:
-        requested = int(__import__("os").getenv("NC_FACEBOOK_GROUP_QUERY_LIMIT", str(default_limit)))
+        requested = int(os.getenv("NC_FACEBOOK_GROUP_QUERY_LIMIT", str(default_limit)))
     except ValueError:
         requested = default_limit
     limit = max(1, min(len(JOINED_FACEBOOK_QUERIES), requested))
