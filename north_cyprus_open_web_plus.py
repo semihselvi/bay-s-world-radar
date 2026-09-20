@@ -62,6 +62,23 @@ EXTRA_BING_QUERIES = [
     '"Północny Cypr po polsku" nieruchomości kupić',
     '"Svenskar på Norra Cypern" köpa bostad',
     '"Nordmenn på Nord-Kypros" kjøpe bolig',
+    # Facebook groups confirmed visible in Semih's joined-group scan. This lane
+    # searches only search-engine-indexed public posts; it does not impersonate a
+    # logged-in Facebook browser session.
+    'site:facebook.com/groups "Northern Cyprus Forum" ("looking to buy" OR "looking for" OR wanted)',
+    'site:facebook.com/groups "The Foreign Residents in the TRNC" ("property" OR "apartment") ("buy" OR "looking for")',
+    'site:facebook.com/groups "KKTC ALIM SATIM KİRALAMA" ("arıyorum" OR "satın almak" OR "sahibinden")',
+    'site:facebook.com/groups "North Cyprus Expats Group 2" ("looking to buy" OR "looking for" OR wanted)',
+    'site:facebook.com/groups "СЕВЕРНЫЙ КИПР И ВСЕ О НЕМ" ("ищу квартиру" OR "хочу купить" OR "куплю")',
+    'site:facebook.com/groups "North Cyprus" ("looking to buy" OR "cash buyer" OR "wanted") property',
+    'site:facebook.com/groups "Long Beach, Iskele, Bogaz, Expats" ("looking for" OR "want to buy" OR "ищу")',
+    'site:facebook.com/groups "Famagusta (North Cyprus) Expats and Students Group" ("looking for" OR "want to buy" OR wanted)',
+    'site:facebook.com/groups "North Cyprus Home Life and Shopping" ("looking for" OR "want to buy" OR "ищу") property',
+    'site:facebook.com/groups "Advice for NORTH CYPRUS Expats" ("buy property" OR "looking to buy" OR "title deed")',
+    'site:facebook.com/groups "North Cyprus Property Investment Club" ("looking to buy" OR "want to buy" OR buyer)',
+    'site:facebook.com/groups "North Cyprus ExPats Group" ("looking to buy" OR "looking for" OR wanted) property',
+    'site:facebook.com/groups "North Cyprus rentals and sales" ("looking to buy" OR "want to buy" OR "looking for")',
+    'site:facebook.com/groups "North Cyprus Expat Sales" ("looking to buy" OR wanted OR buyer)',
     # Language-specific open-web buyer discovery.
     '"Chypre du Nord" "je souhaite acheter" immobilier',
     '"Chypre du Nord" "je veux acheter" appartement',
