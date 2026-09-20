@@ -8,6 +8,7 @@ on:
       - runtime_quality_guard_batch.py
       - test_runtime_quality_guard.py
       - test_runtime_quality_guard_batch.py
+      - north_cyprus_open_web_plus.py
       - .github/workflows/world-radar.yml
   workflow_dispatch:
   schedule:
@@ -37,7 +38,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run shared NC and WORLD quality regressions
         run: |
-          python -m py_compile runtime_quality_guard.py runtime_quality_guard_batch.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py north_cyprus_intent_classifier.py
+          python -m py_compile runtime_quality_guard.py runtime_quality_guard_batch.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py north_cyprus_intent_classifier.py north_cyprus_open_web.py north_cyprus_open_web_plus.py
           python test_runtime_quality_guard.py
           python test_runtime_quality_guard_batch.py
 
