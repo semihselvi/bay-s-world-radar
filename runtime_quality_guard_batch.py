@@ -34,6 +34,25 @@ _NON_PROPERTY_GOODS_RE = re.compile(
     re.I | re.S,
 )
 
+
+# Inventory-style rental offers often omit an explicit "сдам/аренда" verb and
+# consist only of a unit, price and availability/term. They are supply, not
+# tenant demand. A demand verb is checked separately before this rule is used.
+_RENTAL_INVENTORY_OFFER_RE = re.compile(
+    r"(?:"
+    r"(?:\b[0-6]\s*\+\s*[0-3]\b|\b(?:квартир\w*|апартамент\w*|вилл\w*|дом\w*|студи\w*)\b)"
+    r".{0,220}(?:[€£$]\s*\d[\d\s,.]*|\d[\d\s,.]*\s*[€£$])"
+    r".{0,180}(?:"
+    r"/\s*(?:день|сутк\w*|мес\w*|day|night|week|month)|"
+    r"\b(?:за|в)\s+(?:день|сутк\w*|месяц)\b|"
+    r"\b(?:свободн\w*|доступн\w*|депозит\w*|комисси\w*|долгосроч\w*|посуточн\w*|"
+    r"available|availability|deposit|daily|monthly|per\s+day|per\s+month|"
+    r"g[üu]nl[üu]k|ayl[ıi]k|m[üu]sait)\b"
+    r")"
+    r")",
+    re.I | re.S,
+)
+
 # Purchase object may be written as a property noun, a unit configuration (1+1),
 # or a well-known residential project. This still keeps the object close to the
 # purchase verb so Russian "дома" meaning "at home" cannot fake a house purchase.
@@ -81,12 +100,27 @@ def install_nc_intent_guard() -> None:
 
     def guarded(item):
         own = nc._norm(item.get("text"))
+        context = nc._norm(
+            " ".join(str(item.get(k, "")) for k in ("text", "reply_context", "telegram_chat", "title"))
+        )
 
         # An incidental property word must not convert a flea-market purchase
         # into a real-estate lead.
         if _NON_PROPERTY_GOODS_RE.search(own) and not _DIRECT_PROPERTY_BUY_RE.search(own):
             req = nc.extract_requirements(item)
             return nc._result(nc.UNKNOWN, [], 99, ["nonproperty_goods_purchase"], req)
+
+        # Some rental listings are written as "1+1 €550/month, deposit..." with
+        # no explicit supply verb. Price + rental/availability terms are supply
+        # unless the author also uses a genuine renter-demand verb.
+        if (
+            nc._matches(context, nc.PROPERTY_PATTERNS)
+            and nc._matches(context, nc.NC_PATTERNS)
+            and _RENTAL_INVENTORY_OFFER_RE.search(own)
+            and not base._RENTAL_DEMAND_RE.search(own)
+        ):
+            req = nc.extract_requirements(item)
+            return nc._result(nc.OWNER, [], 94, ["rental_inventory_offer"], req)
 
         result = original(item)
 
