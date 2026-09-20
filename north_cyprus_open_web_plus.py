@@ -143,9 +143,65 @@ for _item in EXTRA_REDDIT_FEEDS + list(base.REDDIT_FEEDS):
     _combined.append(_item)
 base.REDDIT_FEEDS = _combined
 
+# Joined Facebook groups get a small dedicated indexed-search budget so they
+# are not dependent on where the much larger generic Bing rotation happens to
+# start. This is public/indexed discovery only; no Facebook login/session is used.
+_JOINED_FACEBOOK_GROUP_NAMES = (
+    "Northern Cyprus Forum",
+    "The Foreign Residents in the TRNC",
+    "KKTC ALIM SATIM KİRALAMA",
+    "North Cyprus Expats Group 2",
+    "СЕВЕРНЫЙ КИПР И ВСЕ О НЕМ",
+    "Long Beach, Iskele, Bogaz, Expats",
+    "Famagusta (North Cyprus) Expats and Students Group",
+    "North Cyprus Home Life and Shopping",
+    "Advice for NORTH CYPRUS Expats",
+    "North Cyprus Property Investment Club",
+    "North Cyprus ExPats Group",
+    "North Cyprus rentals and sales",
+    "North Cyprus Expat Sales",
+)
+JOINED_FACEBOOK_QUERIES = [
+    q for q in EXTRA_BING_QUERIES
+    if any(name.casefold() in q.casefold() for name in _JOINED_FACEBOOK_GROUP_NAMES)
+]
+
+_original_collect_open_web = base.collect_open_web
+
+
+def collect_joined_facebook_index():
+    mode = __import__("os").getenv("NC_OPEN_WEB_MODE", "pulse").strip().lower()
+    default_limit = 8 if mode == "full" else 4
+    try:
+        requested = int(__import__("os").getenv("NC_FACEBOOK_GROUP_QUERY_LIMIT", str(default_limit)))
+    except ValueError:
+        requested = default_limit
+    limit = max(1, min(len(JOINED_FACEBOOK_QUERIES), requested))
+    queries = base._rotating(JOINED_FACEBOOK_QUERIES, limit)
+    date_probe_budget = 3 if mode == "full" else 1
+    unique = {}
+    for query in queries:
+        rows, date_probe_budget = base._parse_bing_rss(query, date_probe_budget)
+        for item in rows:
+            item = dict(item)
+            item["source"] = "Bing RSS Facebook Group"
+            item["source_bucket"] = "bing_rss_joined_facebook_group"
+            unique[item.get("url") or base.main.dedupe_key(item)] = item
+    print(f"FACEBOOK_JOINED_INDEX_COMPLETE queries={len(queries)} unique={len(unique)}")
+    return list(unique.values())
+
+
+def collect_open_web():
+    items = list(_original_collect_open_web())
+    items.extend(collect_joined_facebook_index())
+    unique = {}
+    for item in items:
+        unique[item.get("url") or base.main.dedupe_key(item)] = item
+    return list(unique.values())
+
+
 # Re-export the live mutated objects expected by catcher_expanded.
 OPEN_WEB_ALLOWED_DOMAINS = base.OPEN_WEB_ALLOWED_DOMAINS
 BING_QUERIES = base.BING_QUERIES
 BUYER_HINT_PATTERNS = base.BUYER_HINT_PATTERNS
 REDDIT_FEEDS = base.REDDIT_FEEDS
-collect_open_web = base.collect_open_web
