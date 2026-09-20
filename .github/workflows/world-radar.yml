@@ -1,6 +1,14 @@
 name: BAY-S World Radar
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - runtime_quality_guard.py
+      - runtime_quality_guard_batch.py
+      - test_runtime_quality_guard.py
+      - test_runtime_quality_guard_batch.py
+      - .github/workflows/world-radar.yml
   workflow_dispatch:
   schedule:
     # Turkey time UTC+3
@@ -15,6 +23,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality-regressions:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run shared NC and WORLD quality regressions
+        run: |
+          python -m py_compile runtime_quality_guard.py runtime_quality_guard_batch.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py north_cyprus_intent_classifier.py
+          python test_runtime_quality_guard.py
+          python test_runtime_quality_guard_batch.py
+
   morning-shards:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7 6 * * *'
     strategy:
