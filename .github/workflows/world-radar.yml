@@ -35,8 +35,9 @@ jobs:
           pip install -r requirements.txt
       - name: Syntax and reviewed false-positive regressions
         run: |
-          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py shard_runner_quality.py runtime_quality_guard.py test_runtime_quality_guard.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py world_hard_filters.py world_cross_border_guard.py
+          python -m py_compile main.py config.py world_engine.py hybrid_engine.py telegram_member_reader.py source_registry.py source_crawler_v2.py shard_runner.py shard_runner_quality.py runtime_quality_guard.py runtime_quality_guard_batch.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py north_cyprus_focus.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_recall_guarded.py world_hard_filters.py world_cross_border_guard.py
           python test_runtime_quality_guard.py
+          python test_runtime_quality_guard_batch.py
       - name: Preflight required secrets
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
