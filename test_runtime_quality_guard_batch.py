@@ -1,4 +1,4 @@
-from runtime_quality_guard_batch import install_nc_intent_guard, world_target_rejection
+from runtime_quality_guard_batch import canonical_world_url, install_nc_intent_guard, world_target_rejection
 
 install_nc_intent_guard()
 
@@ -63,6 +63,27 @@ def test_nc_batch_cases():
     assert "SHORT_TERM_TENANT" not in result["intent_subtypes"], result
 
 
+    # Reviewed Recovery false positives: inventory offers must never become
+    # tenant leads even when they contain rental duration words.
+    supply_cases = [
+        "1+1 €28/день, от собственника, свободно, возможна долгосрочная аренда",
+        "Caesar Resort 2+1, €45 в сутки, свободно с 20 сентября",
+        "Caesar Resort 2, 1+1, €550/месяц, депозит один месяц",
+        "Каршияка 3+1 £1200/месяц, доступно сейчас",
+    ]
+    for text in supply_cases:
+        result = classify_intent(_item(text, "СЕВЕРНЫЙ КИПР | НЕДВИЖИМОСТЬ"))
+        assert result["intent_class"] == "OWNER", (text, result)
+
+    # Exact reviewed short-stay demand must route directly to short-term tenant.
+    result = classify_intent(_item(
+        "Ищу дом с бассейном на 1 день Искеле Лонг бич",
+        "СЕВЕРНЫЙ КИПР | НЕДВИЖИМОСТЬ",
+    ))
+    assert result["intent_class"] == "TENANT", result
+    assert "SHORT_TERM_TENANT" in result["intent_subtypes"], result
+
+
 def test_golden_south_expat_cases():
     reviewed = {
         "source_bucket": "shard_golden_south_direct",
@@ -87,6 +108,34 @@ def test_golden_south_expat_cases():
         "text": "I am planning to buy a house in Sicily and would like advice about the purchase process.",
     }
     assert world_target_rejection(real_buyer) == ""
+
+
+    # Commercial relocation providers are not buyer leads.
+    provider = {
+        "source_bucket": "shard_golden_south_direct",
+        "source": "Expat.com Italy",
+        "url": "https://www.expat.com/en/forum/europe/italy/1115893-example.html",
+        "title": "Planning a long stay in Italy",
+        "author": "La Relocation Group",
+        "text": "We help clients relocate to Italy and can assist with local services.",
+    }
+    assert world_target_rejection(provider) == "golden_south_commercial_provider"
+
+    # Turkey/Expat category alone cannot satisfy the North Cyprus CIS target.
+    off_target = {
+        "source_bucket": "shard_north_cyprus_cis_direct",
+        "source": "Expat.com Turkey",
+        "url": "https://www.expat.com/en/forum/middle-east/turkey/example.html#6136861",
+        "title": "Chinese speakers in Bursa",
+        "author": "user",
+        "text": "I am looking for Chinese speakers in Bursa, Turkey.",
+    }
+    assert world_target_rejection(off_target) == "north_cyprus_cis_off_target"
+
+    # Forum post anchors are the same thread and must dedupe to one canonical URL.
+    base_url = "https://www.expat.com/en/forum/europe/italy/1115893-planning-my-first-long-stay-in-italy-looking-for-advice.html"
+    assert canonical_world_url(base_url + "#6136426") == base_url
+    assert canonical_world_url(base_url + "#6136844") == base_url
 
 
 if __name__ == "__main__":
