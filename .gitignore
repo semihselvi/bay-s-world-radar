@@ -1,0 +1,10 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+facebook_leads_latest.json
+facebook_groups_discovered.json
+facebook_posts_debug_latest.json
+facebook_demand_leads_latest.json
+facebook_demand_posts_debug_latest.json
