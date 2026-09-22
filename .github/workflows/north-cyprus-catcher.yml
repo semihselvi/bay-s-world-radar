@@ -1,4 +1,4 @@
-name: BAY-S North Cyprus Buyer Catcher
+name: BAY-S North Cyprus Lead Catcher
 
 on:
   workflow_dispatch:
@@ -8,11 +8,11 @@ on:
     - cron: "52 9,12,15,18,20 * * *"     # 12:52/15:52/18:52/21:52/23:52 fresh pulses
 
 concurrency:
-  group: bay-s-nc-buyer-catcher-${{ github.event.schedule || 'manual' }}
+  group: bay-s-nc-lead-catcher-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
 
 jobs:
-  nc-buyer-catcher:
+  nc-lead-catcher:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -23,13 +23,13 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Syntax and buyer-only regression check
+      - name: Syntax and intent regression check
         run: |
           python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_cross_group.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_routing.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_catcher_buyers_only.py runtime_quality_guard.py runtime_quality_guard_batch.py north_cyprus_catcher_quality.py test_north_cyprus_catcher_buyers_only.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py
           python -m unittest -q test_north_cyprus_catcher_buyers_only.py
           python test_runtime_quality_guard.py
           python test_runtime_quality_guard_batch.py
-      - name: Run buyer-only North Cyprus catcher
+      - name: Run North Cyprus buyer and tenant catcher
         timeout-minutes: 25
         env:
           WORLD_LOOKBACK_HOURS: ${{ github.event_name == 'workflow_dispatch' && '24' || (github.event.schedule == '52 6 * * *' && '24' || '4') }}
@@ -82,5 +82,5 @@ jobs:
           token=os.getenv('TELEGRAM_BOT_TOKEN','').strip(); chat=os.getenv('TELEGRAM_CHAT_ID','').strip()
           if token and chat:
               run=f"https://github.com/{os.getenv('GITHUB_REPOSITORY','')}/actions/runs/{os.getenv('GITHUB_RUN_ID','')}"
-              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':f'⚠️ BAY-S NC BUYER CATCHER failed.\n{run}'},timeout=15)
+              requests.post(f'https://api.telegram.org/bot{token}/sendMessage',json={'chat_id':chat,'text':f'⚠️ BAY-S NC LEAD CATCHER failed.\n{run}'},timeout=15)
           PY
