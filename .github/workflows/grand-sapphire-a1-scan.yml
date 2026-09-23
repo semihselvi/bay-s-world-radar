@@ -1,0 +1,28 @@
+name: Grand Sapphire A Block 1+1 Scan
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "grand_sapphire_a1_scan.py"
+      - ".github/workflows/grand-sapphire-a1-scan.yml"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Scan A block 1+1 sales
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_STRING_SESSION: ${{ secrets.TELEGRAM_STRING_SESSION }}
+          GS_A1_DAYS: "120"
+        run: python grand_sapphire_a1_scan.py
