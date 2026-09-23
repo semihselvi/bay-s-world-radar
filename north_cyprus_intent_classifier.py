@@ -113,6 +113,14 @@ FINANCIAL_DIRECT_PATTERNS = [
     r"\bkripto\b.{0,50}\b(?:almak|satmak|bozdur|transfer)\b", r"\bbanka\s+hesab[ıi]\b.{0,80}\btransfer\b",
 ]
 
+NONPROPERTY_RENTAL_PATTERNS = [
+    r"\bищу\s+в\s+аренду\s+(?:авто|машин\w*|скутер\w*|велосипед\w*)\b",
+    r"\bаренд\w*\s+(?:авто|машин\w*|скутер\w*|велосипед\w*)\b",
+    r"\brent\s+(?:a\s+)?(?:car|vehicle|scooter|bike)\b",
+    r"\b(?:car|vehicle|scooter|bike)\s+rental\b",
+    r"\b(?:araç|arac|otomobil|scooter|bisiklet)\s+kirala\w*\b",
+]
+
 SERVICE_PATTERNS = [
     r"\bcleaning\s+(?:service|services|lady|person)\b", r"\bneed\s+(?:a\s+)?cleaner\b", r"\blooking\s+for\s+(?:a\s+)?cleaner\b",
     r"\btemizlik\s+(?:hizmeti|[çc]i|personeli)\b", r"\btemizlik[çc]i\s+ar[ıi]yorum\b",
@@ -347,6 +355,8 @@ def classify_intent(item: dict[str, Any]) -> dict[str, Any]:
 
     if _matches(own, FINANCIAL_DIRECT_PATTERNS) and not (explicit_buy and property_signal):
         return _result(FINANCIAL, [], 99, ["financial_transaction"], req)
+    if _matches(own, NONPROPERTY_RENTAL_PATTERNS):
+        return _result(SERVICE, [], 99, ["nonproperty_rental"], req)
     if _matches(own, SERVICE_PATTERNS) and not (explicit_buy or explicit_tenant):
         return _result(SERVICE, [], 96, ["service_or_job"], req)
     if _matches(own, SPAM_PATTERNS):
