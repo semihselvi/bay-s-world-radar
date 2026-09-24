@@ -54,9 +54,9 @@ def observe(item, lead, reason):
     row["messages"] += 1
     if reason in ("promotional_or_seller", "seller_agent", "promotional_service_ad"):
         row["promo"] += 1
-    elif reason == "rental":
+    elif reason in ("rental", "buyer_only_reject_tenant", "buyer_only_reject_rental_text"):
         row["rental"] += 1
-    elif reason in ("no_request_shape", "no_buyer_intent", "not_enough_user_discussion_signal"):
+    elif reason in ("no_request_shape", "no_buyer_intent", "not_enough_user_discussion_signal", "buyer_only_nonbuyer_guard"):
         row["no_intent"] += 1
     if lead:
         row["accepted"] += 1
@@ -80,11 +80,15 @@ def score_doc(data):
     potential = max(0, int(data.get("potential", 0) or 0))
     accepted = max(0, int(data.get("accepted", 0) or 0))
     promo = max(0, int(data.get("promo", 0) or 0))
+    rental = max(0, int(data.get("rental", 0) or 0))
+    no_intent = max(0, int(data.get("no_intent", 0) or 0))
 
-    lead_value = hot * 32 + warm * 15 + potential * 6 + accepted * 2
+    lead_value = hot * 40 + warm * 18 + potential * 4 + accepted * 3
     yield_score = (lead_value * 10.0) / math.sqrt(messages + 25)
-    activity = min(10.0, math.log1p(messages) * 1.6)
-    promo_penalty = min(18.0, (promo * 12.0) / (messages + 10))
+    activity = min(8.0, math.log1p(messages) * 1.3)
+    promo_penalty = min(22.0, (promo * 14.0) / (messages + 10))
+    rental_penalty = min(28.0, (rental * 18.0) / (messages + 10))
+    noise_penalty = min(16.0, (no_intent * 8.0) / (messages + 10))
 
     recency = 0.0
     last = _parse(data.get("last_lead_at"))
@@ -97,7 +101,7 @@ def score_doc(data):
         elif age_days <= 30:
             recency = 6.0
 
-    return round(yield_score + activity + recency - promo_penalty, 3)
+    return round(yield_score + activity + recency - promo_penalty - rental_penalty - noise_penalty, 3)
 
 
 def flush():
@@ -124,6 +128,20 @@ def flush():
             merged["last_scanned_at"] = now
             merged["priority_score"] = score_doc(merged)
             ref.set(merged, merge=True)
+
+            username = str(merged.get("source_username") or "").strip().lstrip("@")
+            if username:
+                dynamic_id = hashlib.sha1(f"telegram_public|{username.lower()}".encode("utf-8")).hexdigest()
+                db.collection("bay_s_dynamic_sources").document(dynamic_id).set({
+                    "priority_score": merged["priority_score"],
+                    "buyer_accepted": int(merged.get("accepted", 0) or 0),
+                    "buyer_hot": int(merged.get("hot", 0) or 0),
+                    "buyer_warm": int(merged.get("warm", 0) or 0),
+                    "rental_rejects": int(merged.get("rental", 0) or 0),
+                    "promo_rejects": int(merged.get("promo", 0) or 0),
+                    "no_intent_rejects": int(merged.get("no_intent", 0) or 0),
+                    "performance_updated_at": now,
+                }, merge=True)
         print(f"NC_SOURCE_PERFORMANCE_FLUSH sources={len(_OBS)}")
     except Exception as exc:
         print("NC_SOURCE_PERFORMANCE_FLUSH_ERROR", exc)
