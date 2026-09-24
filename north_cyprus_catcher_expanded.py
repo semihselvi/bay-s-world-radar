@@ -42,6 +42,10 @@ CORE_GLOBAL_QUERIES = [
 
 EXTRA_GLOBAL_QUERIES = [
     "North Cyprus apartment", "Northern Cyprus property", "North Cyprus looking for apartment",
+    "North Cyprus ready to buy", "North Cyprus cash buyer", "North Cyprus looking for villa",
+    "North Cyprus looking for 1+1", "North Cyprus looking for 2+1",
+    "İskele satın almak istiyorum", "Girne satın almak istiyorum",
+    "Северный Кипр готов купить", "Искеле хочу купить",
     "North Cyprus want to buy", "North Cyprus resale", "North Cyprus price", "North Cyprus owner direct",
     "North Cyprus private owner", "Long Beach 1+1", "Long Beach 2+1", "Long Beach resale",
     "İskele arıyorum", "İskele sahibinden", "İskele fiyat", "İskele villa arıyorum",
