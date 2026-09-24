@@ -20,6 +20,7 @@ on:
       - "telegram_network_crawler.py"
       - "telegram_session_pool.py"
       - "telegram_tgden_discovery.py"
+      - "telegram_recommendation_discovery.py"
   schedule:
     # Turkey time UTC+3. Broad free discovery, staggered from other radar lanes.
     - cron: "52 6 * * *"                  # 09:52: 24h catch-up + forums + public discovery + open web + source network crawl
@@ -43,7 +44,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Syntax and intent regression check
         run: |
-          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py telegram_tgden_discovery.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_cross_group.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_routing.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_catcher_buyers_only.py runtime_quality_guard.py runtime_quality_guard_batch.py north_cyprus_catcher_quality.py test_north_cyprus_catcher_buyers_only.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py
+          python -m py_compile main.py world_engine.py source_crawler_v2.py telegram_message_context.py telegram_global_search.py telegram_known_public_groups.py telegram_member_deep_search.py telegram_channel_comments.py telegram_network_crawler.py telegram_tgden_discovery.py telegram_recommendation_discovery.py north_cyprus_source_performance.py north_cyprus_query_performance.py north_cyprus_author_reputation.py north_cyprus_notification_dedupe.py north_cyprus_cross_group.py north_cyprus_open_web.py north_cyprus_open_web_plus.py north_cyprus_conversation.py north_cyprus_focus.py north_cyprus_language_expansion.py north_cyprus_farsi_expansion.py north_cyprus_hunter.py north_cyprus_recall.py north_cyprus_spam_guard.py north_cyprus_intent_classifier.py north_cyprus_publisher_classifier.py north_cyprus_semantic_dedupe.py north_cyprus_intent_routing.py north_cyprus_catcher.py north_cyprus_reply_context.py north_cyprus_catcher_expanded.py north_cyprus_catcher_buyers_only.py runtime_quality_guard.py runtime_quality_guard_batch.py north_cyprus_catcher_quality.py test_north_cyprus_catcher_buyers_only.py test_runtime_quality_guard.py test_runtime_quality_guard_batch.py
           python -m unittest -q test_north_cyprus_catcher_buyers_only.py
           python north_cyprus_intent_selftest.py
           python test_runtime_quality_guard.py
@@ -71,6 +72,7 @@ jobs:
           WORLD_TELEGRAM_NETWORK_DAYS: "14"
           WORLD_TELEGRAM_NETWORK_FRONTIER: "120"
           NC_TGDEN_ENABLED: "1"
+          NC_TELEGRAM_RECOMMENDATIONS: "1"
           NC_TGDEN_QUERY_LIMIT: "20"
           NC_TGDEN_RESULTS_PER_QUERY: "25"
           NC_STITCH_GAP_HOURS: "6"
