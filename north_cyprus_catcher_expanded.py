@@ -33,6 +33,7 @@ from telegram_member_deep_search import collect_member_deep_search
 from telegram_network_crawler import crawl_network
 from telegram_tgden_discovery import discover_tgden
 from telegram_recommendation_discovery import discover_recommendations
+from telegram_candidate_validator import validate_candidates
 
 for _domain in OPEN_WEB_ALLOWED_DOMAINS:
     nf.ALLOWED_USER_DOMAINS.add(_domain)
@@ -247,6 +248,7 @@ def expanded_collect_global():
     open_web=collect_open_web(); buckets.append(("open_web_reddit_bing_dynamic",open_web))
     network_stats=crawl_network()
     recommendation_stats=discover_recommendations()
+    candidate_stats=validate_candidates()
 
     unique={}; counts={}
     for name,items in buckets:
@@ -264,7 +266,7 @@ def expanded_collect_global():
     cross_profiles=stitch_cross_group_identity(collected,max_gap_hours=72,max_parts=8)
     collected.extend(cross_profiles)
 
-    print("NC_EXPANDED_SOURCE_COUNTS",counts,"tgden",tgden_stats,"recommendations",recommendation_stats,"network",network_stats,"cross_group_profiles",len(cross_profiles),"semantic_unique",len(collected))
+    print("NC_EXPANDED_SOURCE_COUNTS",counts,"tgden",tgden_stats,"recommendations",recommendation_stats,"candidate_validation",candidate_stats,"network",network_stats,"cross_group_profiles",len(cross_profiles),"semantic_unique",len(collected))
     return collected
 
 
