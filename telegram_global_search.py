@@ -10,6 +10,7 @@ from telethon.tl.functions.contacts import SearchRequest as SearchContactsReques
 from telethon.tl.types import Channel, Chat, User
 
 import main
+import telegram_session_pool as tsp
 from telegram_message_context import reply_context
 
 GLOBAL_QUERIES = [
@@ -86,18 +87,19 @@ def _persist_discovered_groups(groups):
 
 
 async def _collect_global():
-    api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip(); session=os.getenv("TELEGRAM_STRING_SESSION","").strip()
-    if not api_id or not api_hash or not session:
-        print("TELEGRAM_GLOBAL_DISABLED missing TELEGRAM_API_ID/API_HASH/STRING_SESSION"); return []
+    api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip()
+    if not api_id or not api_hash:
+        print("TELEGRAM_GLOBAL_DISABLED missing TELEGRAM_API_ID/API_HASH"); return []
     lookback_hours=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); query_limit=max(1,min(len(GLOBAL_QUERIES),int(os.getenv("WORLD_TELEGRAM_GLOBAL_QUERY_LIMIT","16"))))
     result_limit=max(5,min(60,int(os.getenv("WORLD_TELEGRAM_GLOBAL_RESULTS_PER_QUERY","30")))); cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback_hours)
     discover_public=os.getenv("WORLD_TELEGRAM_DISCOVER_PUBLIC_GROUPS","0").strip()=="1"
     public_group_limit=max(5,min(60,int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_LIMIT","40")))); public_message_limit=max(20,min(150,int(os.getenv("WORLD_TELEGRAM_PUBLIC_GROUP_MESSAGES","70"))))
-    client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
-    if not await client.is_user_authorized(): await client.disconnect(); return []
-    items={}; query_counts={}; discovered_groups={}
+    slots=await tsp.open_pool(int(api_id),api_hash)
+    if not slots: return []
+    items={}; query_counts={}; discovered_groups={}; slot_index=0
     try:
         for idx,query in enumerate(GLOBAL_QUERIES[:query_limit],1):
+            slot=slots[slot_index]; client=slot.client
             kept=0; seen_for_query=0
             try:
                 async for msg in client.iter_messages(None,search=query,limit=result_limit):
@@ -112,7 +114,11 @@ async def _collect_global():
                     if not item: continue
                     items[item["url"]]=item; kept+=1
             except FloodWaitError as exc:
-                print(f"TELEGRAM_GLOBAL_FLOOD_WAIT query={query!r} seconds={exc.seconds}"); break
+                print(f"TELEGRAM_GLOBAL_FLOOD_WAIT query={query!r} session={slot.name} seconds={exc.seconds}")
+                if len(slots)>1:
+                    slot_index=tsp.rotate_index(slots,slot_index)
+                    continue
+                break
             except Exception as exc: print(f"TELEGRAM_GLOBAL_QUERY_ERROR query={query!r} {exc}")
             query_counts[query]=kept; print(f"TELEGRAM_GLOBAL_QUERY [{idx}/{query_limit}] query={query!r} seen={seen_for_query} kept={kept}")
 
@@ -144,7 +150,7 @@ async def _collect_global():
                 except FloodWaitError as exc:
                     print(f"TELEGRAM_PUBLIC_GROUP_FLOOD_WAIT chat={getattr(chat,'title','')!r} seconds={exc.seconds}"); break
                 except Exception as exc: print(f"TELEGRAM_PUBLIC_GROUP_SCAN_ERROR chat={getattr(chat,'title','')!r} {exc}")
-    finally: await client.disconnect()
+    finally: await tsp.close_pool(slots)
 
     _persist_discovered_groups(list(discovered_groups.values()))
     out=list(items.values()); out.sort(key=lambda x:x.get("published",""),reverse=True)
