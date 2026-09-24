@@ -62,10 +62,10 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           YOUTUBE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '25 5 * * *' && 'discover_scan') || (github.event.schedule == '45 4 * * 0' && 'deep_scan') || 'scan' }}
-          YOUTUBE_DISCOVERY_QUERY_LIMIT: ${{ github.event.schedule == '45 4 * * 0' && '22' || '12' }}
+          YOUTUBE_DISCOVERY_QUERY_LIMIT: ${{ github.event.schedule == '45 4 * * 0' && '30' || '18' }}
           YOUTUBE_SEARCH_RESULTS: "15"
           YOUTUBE_DISCOVERY_DAYS: "14"
-          YOUTUBE_WATCHLIST_LIMIT: "160"
+          YOUTUBE_WATCHLIST_LIMIT: "220"
           YOUTUBE_COMMENT_PAGES: ${{ github.event.schedule == '45 4 * * 0' && '3' || github.event.schedule == '25 5 * * *' && '2' || '1' }}
           YOUTUBE_FULL_REPLY_THREADS_PER_VIDEO: ${{ github.event.schedule == '45 4 * * 0' && '6' || github.event.schedule == '25 5 * * *' && '4' || '2' }}
           YOUTUBE_FULL_REPLY_PAGES: "2"
