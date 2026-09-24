@@ -172,6 +172,19 @@ JOINED_FACEBOOK_QUERIES = [
 # depending on the large rotating Bing pool, so buyer posts on public forums
 # and indexed Facebook groups are not missed.
 HIGH_INTENT_WEB_QUERIES = [
+    'site:expat.com/en/forum "North Cyprus" "my budget" property',
+    'site:expat.com/en/forum "North Cyprus" "looking for a property"',
+    'site:expat.com/en/forum "North Cyprus" "want to buy" apartment',
+    'site:britishexpats.com/forum/cyprus-117 "North Cyprus" "looking to buy"',
+    'site:britishexpats.com/forum/cyprus-117 "North Cyprus" "budget" property',
+    'site:kibkomnorthcyprusforum.com "looking to buy" property',
+    'site:kibkomnorthcyprusforum.com "property wanted"',
+    'site:kibkomnorthcyprusforum.com "cash buyer"',
+    'site:forum.donanimhaber.com "Kuzey Kıbrıs" "bütçem" daire',
+    'site:forum.donanimhaber.com "Kuzey Kıbrıs" "satın almak istiyorum"',
+    'site:gutefrage.net Nordzypern "ich möchte kaufen" Wohnung',
+    'site:gutefrage.net Nordzypern "Budget" Immobilie',
+
     'site:expat.com/en/forum "North Cyprus" ("buy property" OR "purchase property" OR "want to buy")',
     'site:britishexpats.com/forum/cyprus-117 "North Cyprus" ("buy property" OR "buying property" OR "want to buy")',
     'site:kibkomnorthcyprusforum.com ("buy property" OR "looking to buy" OR "property wanted")',
