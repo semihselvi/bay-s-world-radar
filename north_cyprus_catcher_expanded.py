@@ -4,6 +4,7 @@ import hashlib
 # neighbor discovery validation trigger
 # promo opportunity validation trigger
 # buyer-yield source ranking validation trigger
+# buyer review validation trigger
 import json
 import os
 from datetime import datetime, timezone, timedelta
