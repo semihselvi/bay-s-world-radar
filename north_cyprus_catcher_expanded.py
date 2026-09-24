@@ -34,6 +34,7 @@ from telegram_network_crawler import crawl_network
 from telegram_tgden_discovery import discover_tgden
 from telegram_recommendation_discovery import discover_recommendations
 from telegram_candidate_validator import validate_candidates
+from tgden_buyer_posts import collect_tgden_buyer_posts
 
 for _domain in OPEN_WEB_ALLOWED_DOMAINS:
     nf.ALLOWED_USER_DOMAINS.add(_domain)
@@ -246,6 +247,7 @@ def expanded_collect_global():
     deep_member=collect_member_deep_search(); buckets.append(("telegram_joined_deep",deep_member))
     channel_comments=collect_channel_comments(); buckets.append(("telegram_channel_comments",channel_comments))
     open_web=collect_open_web(); buckets.append(("open_web_reddit_bing_dynamic",open_web))
+    tgden_posts=collect_tgden_buyer_posts(); buckets.append(("tgden_public_posts",tgden_posts))
     network_stats=crawl_network()
     recommendation_stats=discover_recommendations()
     candidate_stats=validate_candidates()
