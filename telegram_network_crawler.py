@@ -17,6 +17,18 @@ from telegram_member_deep_search import NC_TITLE_HINTS
 COLLECTION="bay_s_dynamic_sources"
 PUBLIC_RE=re.compile(r"https?://t\.me/(?!\+|joinchat/)([A-Za-z0-9_]{5,})",re.I)
 INVITE_RE=re.compile(r"https?://t\.me/(\+[A-Za-z0-9_-]{8,}|joinchat/[A-Za-z0-9_-]{8,})",re.I)
+SOUTH_ONLY_RE=re.compile(
+    r"\b(limassol|lemesos|paphos|pafos|larnaca|larna(?:k|c)a|ayia\s+napa|agia\s+napa|protaras|paralimni|"
+    r"republic\s+of\s+cyprus|greek\s+cyprus|south\s+cyprus)\b",
+    re.I,
+)
+NC_STRONG_RE=re.compile(
+    r"\b(north(?:ern)?\s+cyprus|trnc|kktc|kuzey\s+k[ıi]br[ıi]s|северн\w*\s+кипр\w*|"
+    r"iskele|i̇skele|long\s+beach|girne|kyrenia|esentepe|gazima[ğg]usa|famagust\w*|"
+    r"bafra|lapta|alsancak|tatl[ıi]su|yenibo[ğg]azi[çc]i|caesar\s+resort|grand\s+sapphire|"
+    r"royal\s+sun|riverside\s+life|isatis|elysium)\b",
+    re.I,
+)
 PROMO_ALLOW_RE=re.compile(
     r"(advertis(?:e|ing)|promo(?:tion)?|sponsor(?:ed|ship)?|paid\s+post|partnership|"
     r"reklam|tan[ıi]t[ıi]m|işbirliği|isbirligi|sponsorlu|"
@@ -54,6 +66,42 @@ def _doc_id(kind,value):
 def _extract(text):
     text=str(text or "")
     return set(PUBLIC_RE.findall(text)), {f"https://t.me/{x}" for x in INVITE_RE.findall(text)}
+
+
+async def _candidate_market_quality(client, entity, title, about, source_count, message_limit=24):
+    header=f"{title} {about}"
+    header_nc=bool(NC_STRONG_RE.search(header))
+    south=bool(SOUTH_ONLY_RE.search(header))
+
+    nc_hits=0
+    sampled=0
+    if not header_nc:
+        try:
+            async for msg in client.iter_messages(entity,limit=message_limit):
+                text=str(getattr(msg,"message","") or "")
+                if not text:
+                    continue
+                sampled+=1
+                if NC_STRONG_RE.search(text):
+                    nc_hits+=1
+                if sampled>=message_limit:
+                    break
+        except Exception:
+            pass
+
+    if south and not header_nc and nc_hits<2:
+        return False, "south_cyprus_only", nc_hits
+
+    if header_nc:
+        return True, "north_cyprus_header", nc_hits
+
+    if nc_hits>=2:
+        return True, "north_cyprus_message_evidence", nc_hits
+
+    if source_count>=3 and nc_hits>=1:
+        return True, "multi_source_plus_nc_message", nc_hits
+
+    return False, "insufficient_north_cyprus_evidence", nc_hits
 
 
 def _promo_policy(text):
@@ -200,16 +248,25 @@ async def _collect_candidates():
                         about=str(getattr(getattr(full,"full_chat",None),"about","") or "")
                     except Exception:
                         pass
+                    source_count=len(public_sources.get(username,set()))
+                    market_ok,market_reason,nc_message_hits=await _candidate_market_quality(
+                        client,entity,str(getattr(entity,"title","") or username),about,source_count
+                    )
+                    if not market_ok:
+                        print(f"TELEGRAM_NETWORK_REJECT @{username} reason={market_reason} nc_message_hits={nc_message_hits}")
+                        continue
                     promo_policy,promo_evidence=_promo_policy(about)
                     verified.append((
                         str(entity.username),
                         str(getattr(entity,"title","") or username),
                         int(public_mentions.get(username,0)),
-                        len(public_sources.get(username,set())),
+                        source_count,
                         sorted(public_sources.get(username,set()))[:20],
                         promo_policy,
                         promo_evidence,
                         about[:1200],
+                        market_reason,
+                        nc_message_hits,
                     ))
             except FloodWaitError as exc:
                 print(f"TELEGRAM_NETWORK_VERIFY_FLOOD_WAIT seconds={exc.seconds}"); break
@@ -228,7 +285,7 @@ def crawl_network():
     if not db: return {"public_new":0,"private_new":0}
     now=main.now_utc().isoformat(); public_new=[]; private_new=[]
     promo_allowed=[]
-    for username,title,mention_count,mention_source_count,mention_sources,promo_policy,promo_evidence,about in verified:
+    for username,title,mention_count,mention_source_count,mention_sources,promo_policy,promo_evidence,about,market_reason,nc_message_hits in verified:
         ref=db.collection(COLLECTION).document(_doc_id("telegram_public",username)); existed=ref.get().exists
         discovery_score=min(100, mention_source_count*12 + min(40,mention_count*3))
         ref.set({
@@ -237,6 +294,7 @@ def crawl_network():
             "mention_count":mention_count,"mention_source_count":mention_source_count,
             "mention_sources":mention_sources,"discovery_score":discovery_score,
             "promo_policy":promo_policy,"promo_evidence":promo_evidence,"about":about,
+            "market_quality_reason":market_reason,"nc_message_hits":nc_message_hits,
             "last_seen":now
         },merge=True)
         if promo_policy=="allowed":
@@ -249,7 +307,7 @@ def crawl_network():
     top=sorted(verified,key=lambda x:(x[3],x[2]),reverse=True)[:10]
     print(f"TELEGRAM_NETWORK_COMPLETE public_verified={len(verified)} public_new={len(public_new)} private_new={len(private_new)}")
     if top:
-        print("TELEGRAM_NETWORK_TOP "+", ".join(f"@{u}:sources={sc}:mentions={mc}" for u,t,mc,sc,src,pp,pe,about in top))
+        print("TELEGRAM_NETWORK_TOP "+", ".join(f"@{u}:sources={sc}:mentions={mc}" for u,t,mc,sc,src,pp,pe,about,mr,nh in top))
     if promo_allowed:
         print("TELEGRAM_PROMO_OPPORTUNITIES "+", ".join(f"@{u}:score={score}:{ev}" for u,t,score,ev in sorted(promo_allowed,key=lambda x:x[2],reverse=True)[:12]))
     if private_new:
