@@ -72,7 +72,8 @@ jobs:
           WORLD_TELEGRAM_NETWORK_DAYS: "14"
           WORLD_TELEGRAM_NETWORK_FRONTIER: "120"
           NC_TGDEN_ENABLED: "1"
-          NC_TELEGRAM_RECOMMENDATIONS: "1"
+          NC_TELEGRAM_RECOMMENDATIONS: ${{ github.event.schedule == '52 6 * * *' && '1' || '0' }}
+          NC_TELEGRAM_RECOMMENDATION_SEEDS: "5"
           NC_TGDEN_QUERY_LIMIT: "20"
           NC_TGDEN_RESULTS_PER_QUERY: "25"
           NC_STITCH_GAP_HOURS: "6"
