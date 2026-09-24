@@ -29,7 +29,7 @@ def _dynamic_groups(limit=100):
         return []
     out=[]; seen=set()
     try:
-        for doc in db.collection("bay_s_dynamic_sources").limit(250).stream():
+        for doc in db.collection("bay_s_dynamic_sources").limit(1000).stream():
             data=doc.to_dict() or {}
             if data.get("market") != "north_cyprus" or data.get("type") != "telegram_public" or data.get("status") != "active":
                 continue
