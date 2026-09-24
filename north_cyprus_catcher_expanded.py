@@ -2,6 +2,7 @@ import hashlib
 # source discovery scoring test trigger
 # multi-session validation trigger
 # neighbor discovery validation trigger
+# promo opportunity validation trigger
 import json
 import os
 from datetime import datetime, timezone, timedelta
