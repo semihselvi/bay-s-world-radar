@@ -28,7 +28,7 @@ def _dynamic_groups(limit=100):
     db = main.firestore_client()
     if not db:
         return []
-    out=[]; seen=set()
+    rows=[]; seen=set()
     try:
         for doc in db.collection("bay_s_dynamic_sources").limit(1000).stream():
             data=doc.to_dict() or {}
@@ -37,11 +37,19 @@ def _dynamic_groups(limit=100):
             username=str(data.get("username") or "").strip().lstrip("@")
             if not username or username.lower() in seen:
                 continue
-            seen.add(username.lower()); out.append(username)
-            if len(out)>=limit: break
+            seen.add(username.lower())
+            buyer_priority=float(data.get("priority_score",0) or 0)
+            discovery=float(data.get("discovery_score",0) or 0)
+            accepted=int(data.get("buyer_accepted",0) or 0)
+            rental=int(data.get("rental_rejects",0) or 0)
+            promo=int(data.get("promo_rejects",0) or 0)
+            score=buyer_priority*3.0 + discovery*0.35 + accepted*8.0 - rental*1.5 - promo*1.0
+            rows.append((score,username))
     except Exception as exc:
         print("TELEGRAM_DYNAMIC_GROUP_LOAD_ERROR",exc)
-    print(f"TELEGRAM_DYNAMIC_GROUPS loaded={len(out)}")
+    rows.sort(key=lambda x:(x[0],x[1].lower()),reverse=True)
+    out=[username for score,username in rows[:limit]]
+    print(f"TELEGRAM_DYNAMIC_GROUPS loaded={len(out)} top="+",".join(f"@{u}" for u in out[:8]))
     return out
 
 
