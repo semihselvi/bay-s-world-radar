@@ -167,6 +167,46 @@ JOINED_FACEBOOK_QUERIES = [
     if any(name.casefold() in q.casefold() for name in _JOINED_FACEBOOK_GROUP_NAMES)
 ]
 
+
+# Dedicated high-intent web lane. These queries run every pulse instead of
+# depending on the large rotating Bing pool, so buyer posts on public forums
+# and indexed Facebook groups are not missed.
+HIGH_INTENT_WEB_QUERIES = [
+    'site:expat.com/en/forum "North Cyprus" ("buy property" OR "purchase property" OR "want to buy")',
+    'site:britishexpats.com/forum/cyprus-117 "North Cyprus" ("buy property" OR "buying property" OR "want to buy")',
+    'site:kibkomnorthcyprusforum.com ("buy property" OR "looking to buy" OR "property wanted")',
+    'site:forum.donanimhaber.com "Kuzey Kıbrıs" ("ev almak" OR "daire almak" OR "yatırım amaçlı")',
+    'site:gutefrage.net Nordzypern ("Immobilie kaufen" OR "Wohnung kaufen" OR "Haus kaufen")',
+    'site:reddit.com "North Cyprus" ("looking to buy" OR "want to buy" OR "my budget") property',
+    'site:facebook.com/groups "North Cyprus" ("looking to buy" OR "want to buy" OR "budget") property',
+    'site:facebook.com/groups "Kuzey Kıbrıs" ("satın almak istiyorum" OR "daire arıyorum" OR "bütçe")',
+    'site:facebook.com/groups "Северный Кипр" ("хочу купить" OR "ищу квартиру" OR "бюджет")',
+    '"North Cyprus" ("looking to buy" OR "want to buy") ("budget" OR "cash buyer")',
+    '"Kuzey Kıbrıs" ("ev almak istiyorum" OR "daire almak istiyorum")',
+    '"Северный Кипр" ("хочу купить квартиру" OR "ищу на покупку")',
+]
+
+def collect_high_intent_web_index():
+    mode = os.getenv("NC_OPEN_WEB_MODE", "pulse").strip().lower()
+    default_limit = 12 if mode == "full" else 8
+    try:
+        requested = int(os.getenv("NC_HIGH_INTENT_WEB_QUERY_LIMIT", str(default_limit)))
+    except ValueError:
+        requested = default_limit
+    limit = max(1, min(len(HIGH_INTENT_WEB_QUERIES), requested))
+    queries = HIGH_INTENT_WEB_QUERIES[:limit]
+    date_probe_budget = 5 if mode == "full" else 2
+    unique = {}
+    for query in queries:
+        rows, date_probe_budget = base._parse_bing_rss(query, date_probe_budget)
+        for item in rows:
+            item = dict(item)
+            item["source"] = "Bing RSS High Intent Web"
+            item["source_bucket"] = "bing_rss_high_intent_buyer_web"
+            unique[item.get("url") or base.main.dedupe_key(item)] = item
+    print(f"HIGH_INTENT_WEB_COMPLETE queries={len(queries)} unique={len(unique)}")
+    return list(unique.values())
+
 _original_collect_open_web = base.collect_open_web
 
 
@@ -195,6 +235,7 @@ def collect_joined_facebook_index():
 def collect_open_web():
     items = list(_original_collect_open_web())
     items.extend(collect_joined_facebook_index())
+    items.extend(collect_high_intent_web_index())
     unique = {}
     for item in items:
         unique[item.get("url") or base.main.dedupe_key(item)] = item
