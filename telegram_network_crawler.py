@@ -77,7 +77,7 @@ async def _collect_candidates():
             except Exception as exc: print(f"TELEGRAM_NETWORK_CHAT_ERROR chat={title!r} {exc}")
 
         verified=set()
-        for username in sorted(public)[:100]:
+        for username in sorted(public)[:300]:
             try:
                 entity=await client.get_entity(username)
                 if isinstance(entity,Channel) and getattr(entity,"megagroup",False) and getattr(entity,"username",None):
