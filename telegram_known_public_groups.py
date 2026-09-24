@@ -86,8 +86,11 @@ async def _collect():
     items={}
     scanned=0
     slot_index=0
+    stop_scan=False
     try:
         for username in ordered_groups[:max_groups]:
+            if stop_scan:
+                break
             attempts=0
             while attempts < len(slots):
                 slot=slots[slot_index]
@@ -151,6 +154,7 @@ async def _collect():
                     print(f"TELEGRAM_KNOWN_GROUP_FLOOD_WAIT @{username} session={slot.name} seconds={exc.seconds}")
                     attempts+=1
                     if attempts >= len(slots):
+                        stop_scan=True
                         break
                     slot_index=tsp.rotate_index(slots,slot_index)
                     continue
