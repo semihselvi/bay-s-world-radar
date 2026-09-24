@@ -2,6 +2,9 @@ name: BAY-S North Cyprus Lead Catcher
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/north-cyprus-catcher.yml"
   schedule:
     # Turkey time UTC+3. Broad free discovery, staggered from other radar lanes.
     - cron: "52 6 * * *"                  # 09:52: 24h catch-up + forums + public discovery + open web + source network crawl
