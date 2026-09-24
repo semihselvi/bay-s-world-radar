@@ -85,22 +85,27 @@ def discover_tgden():
             except Exception as exc:
                 print(f"TGDEN_ERROR query={query!r} type={kind} {type(exc).__name__}: {exc}")
 
-    saved=0; rejected=0; now=main.now_utc().isoformat()
+    saved=0; candidates=0; rejected=0; now=main.now_utc().isoformat()
     for item in seen.values():
         ok,reason=_quality(item)
-        if not ok:
+        username=str(item.get("username") or "").strip().lstrip("@")
+        if not username:
             rejected+=1
             continue
-        username=str(item.get("username") or "").strip().lstrip("@")
         title=str(item.get("title") or username)
         ref=db.collection(COLLECTION).document(_doc_id(username))
+        status="active" if ok else "candidate"
+        if status=="candidate":
+            candidates+=1
+        else:
+            saved+=1
         ref.set({
             "type":"telegram_public",
             "market":"north_cyprus",
             "username":username,
             "title":title,
             "url":f"https://t.me/{username}",
-            "status":"active",
+            "status":status,
             "discovered_by":"tgden_catalog",
             "external_catalog":"tgden",
             "external_catalog_query":item.get("tgden_query"),
@@ -108,12 +113,12 @@ def discover_tgden():
             "external_catalog_id":item.get("id"),
             "telegram_id":item.get("telegram_id"),
             "market_quality_reason":reason,
+            "needs_validation": not ok,
             "last_seen":now,
         },merge=True)
-        saved+=1
 
-    print(f"TGDEN_DISCOVERY_COMPLETE queries={query_limit} seen={len(seen)} saved={saved} rejected={rejected}")
-    return {"queries":query_limit,"seen":len(seen),"saved":saved,"rejected":rejected}
+    print(f"TGDEN_DISCOVERY_COMPLETE queries={query_limit} seen={len(seen)} active={saved} candidates={candidates} rejected={rejected}")
+    return {"queries":query_limit,"seen":len(seen),"active":saved,"candidates":candidates,"rejected":rejected}
 
 
 if __name__=="__main__":
