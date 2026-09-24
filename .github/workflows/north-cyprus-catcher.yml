@@ -5,6 +5,9 @@ on:
   push:
     paths:
       - ".github/workflows/north-cyprus-catcher.yml"
+      - "north_cyprus_catcher_quality.py"
+      - "north_cyprus_catcher_buyers_only.py"
+      - "north_cyprus_catcher_expanded.py"
   schedule:
     # Turkey time UTC+3. Broad free discovery, staggered from other radar lanes.
     - cron: "52 6 * * *"                  # 09:52: 24h catch-up + forums + public discovery + open web + source network crawl
