@@ -239,14 +239,14 @@ base._classify = _classify_and_learn
 
 def expanded_collect_global():
     tgden_stats=discover_tgden()
-    recommendation_stats=discover_recommendations()
-    network_stats=crawl_network()
     buckets=[]
     normal_global=_original_collect_global(); buckets.append(("telegram_global_public",normal_global))
     known_groups=collect_known_public_groups(); buckets.append(("telegram_verified_groups",known_groups))
     deep_member=collect_member_deep_search(); buckets.append(("telegram_joined_deep",deep_member))
     channel_comments=collect_channel_comments(); buckets.append(("telegram_channel_comments",channel_comments))
     open_web=collect_open_web(); buckets.append(("open_web_reddit_bing_dynamic",open_web))
+    network_stats=crawl_network()
+    recommendation_stats=discover_recommendations()
 
     unique={}; counts={}
     for name,items in buckets:
