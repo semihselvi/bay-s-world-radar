@@ -1,0 +1,33 @@
+name: VK RADAR
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - vk_radar.py
+      - .github/workflows/vk-radar.yml
+  schedule:
+    - cron: "17 5,9,13,17,21 * * *"
+
+concurrency:
+  group: vk-radar
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: VK buyer scan
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -m py_compile vk_radar.py
+          python vk_radar.py
