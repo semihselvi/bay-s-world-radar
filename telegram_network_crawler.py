@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import os
 import re
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
 from telethon import TelegramClient
@@ -51,6 +52,7 @@ async def _collect_candidates():
     client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
     if not await client.is_user_authorized(): await client.disconnect(); return set(),set(STATIC_JOIN_CANDIDATES)
     public=set(); invites=set(STATIC_JOIN_CANDIDATES); dialogs=[]
+    public_mentions=Counter(); public_sources=defaultdict(set)
     try:
         async for dialog in client.iter_dialogs(limit=220):
             entity=dialog.entity
@@ -67,21 +69,38 @@ async def _collect_candidates():
                         full=await client(GetFullChannelRequest(entity)); about=str(getattr(getattr(full,"full_chat",None),"about","") or "")
                     except Exception: pass
                 p,i=_extract(about); public|=p; invites|=i
+                for username in p:
+                    public_mentions[username]+=1
+                    public_sources[username].add(title)
                 async for msg in client.iter_messages(entity,limit=max_messages):
                     dt=getattr(msg,"date",None)
                     if dt and dt.tzinfo is None: dt=dt.replace(tzinfo=timezone.utc)
                     if dt and dt<cutoff: break
                     p,i=_extract(getattr(msg,"message","") or ""); public|=p; invites|=i
+                    for username in p:
+                        public_mentions[username]+=1
+                        public_sources[username].add(title)
             except FloodWaitError as exc:
                 print(f"TELEGRAM_NETWORK_FLOOD_WAIT chat={title!r} seconds={exc.seconds}"); break
             except Exception as exc: print(f"TELEGRAM_NETWORK_CHAT_ERROR chat={title!r} {exc}")
 
-        verified=set()
-        for username in sorted(public)[:300]:
+        verified=[]
+        ranked_public=sorted(
+            public,
+            key=lambda u:(len(public_sources.get(u,set())),public_mentions.get(u,0),u.lower()),
+            reverse=True,
+        )
+        for username in ranked_public[:300]:
             try:
                 entity=await client.get_entity(username)
                 if isinstance(entity,Channel) and getattr(entity,"megagroup",False) and getattr(entity,"username",None):
-                    verified.add((str(entity.username),str(getattr(entity,"title","") or username)))
+                    verified.append((
+                        str(entity.username),
+                        str(getattr(entity,"title","") or username),
+                        int(public_mentions.get(username,0)),
+                        len(public_sources.get(username,set())),
+                        sorted(public_sources.get(username,set()))[:20],
+                    ))
             except FloodWaitError as exc:
                 print(f"TELEGRAM_NETWORK_VERIFY_FLOOD_WAIT seconds={exc.seconds}"); break
             except Exception: pass
@@ -97,15 +116,24 @@ def crawl_network():
     db=main.firestore_client()
     if not db: return {"public_new":0,"private_new":0}
     now=main.now_utc().isoformat(); public_new=[]; private_new=[]
-    for username,title in verified:
+    for username,title,mention_count,mention_source_count,mention_sources in verified:
         ref=db.collection(COLLECTION).document(_doc_id("telegram_public",username)); existed=ref.get().exists
-        ref.set({"type":"telegram_public","market":"north_cyprus","username":username,"title":title,"url":f"https://t.me/{username}","status":"active","discovered_by":"telegram_network_crawler","last_seen":now},merge=True)
+        discovery_score=min(100, mention_source_count*12 + min(40,mention_count*3))
+        ref.set({
+            "type":"telegram_public","market":"north_cyprus","username":username,"title":title,
+            "url":f"https://t.me/{username}","status":"active","discovered_by":"telegram_network_crawler",
+            "mention_count":mention_count,"mention_source_count":mention_source_count,
+            "mention_sources":mention_sources,"discovery_score":discovery_score,"last_seen":now
+        },merge=True)
         if not existed: public_new.append(f"@{username}")
     for invite in sorted(invites):
         ref=db.collection(COLLECTION).document(_doc_id("telegram_private_invite",invite)); existed=ref.get().exists
         ref.set({"type":"telegram_private_invite","market":"north_cyprus","url":invite,"status":"join_candidate","discovered_by":"telegram_network_crawler","last_seen":now},merge=True)
         if not existed: private_new.append(invite)
+    top=sorted(verified,key=lambda x:(x[3],x[2]),reverse=True)[:10]
     print(f"TELEGRAM_NETWORK_COMPLETE public_verified={len(verified)} public_new={len(public_new)} private_new={len(private_new)}")
+    if top:
+        print("TELEGRAM_NETWORK_TOP "+", ".join(f"@{u}:sources={sc}:mentions={mc}" for u,t,mc,sc,src in top))
     if private_new:
         main.notify_telegram("🔗 BAY-S NC JOIN LIST\nYeni private Telegram grup adayları bulundu. Otomatik katılım YOK.\n"+"\n".join(private_new[:8]))
     return {"public_new":len(public_new),"private_new":len(private_new)}
