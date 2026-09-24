@@ -55,7 +55,8 @@ async def _discover():
             entity=dialog.entity
             if isinstance(entity,Channel) and _is_nc(entity):
                 seeds.append(entity)
-                if len(seeds)>=20:
+                max_seeds=max(1,min(10,int(os.getenv("NC_TELEGRAM_RECOMMENDATION_SEEDS","5"))))
+                if len(seeds)>=max_seeds:
                     break
 
         for seed in seeds:
