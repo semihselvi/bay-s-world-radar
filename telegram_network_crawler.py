@@ -17,6 +17,18 @@ from telegram_member_deep_search import NC_TITLE_HINTS
 COLLECTION="bay_s_dynamic_sources"
 PUBLIC_RE=re.compile(r"https?://t\.me/(?!\+|joinchat/)([A-Za-z0-9_]{5,})",re.I)
 INVITE_RE=re.compile(r"https?://t\.me/(\+[A-Za-z0-9_-]{8,}|joinchat/[A-Za-z0-9_-]{8,})",re.I)
+PROMO_ALLOW_RE=re.compile(
+    r"(advertis(?:e|ing)|promo(?:tion)?|sponsor(?:ed|ship)?|paid\s+post|partnership|"
+    r"reklam|tan[ıi]t[ıi]m|işbirliği|isbirligi|sponsorlu|"
+    r"реклам|промо|платн\w*\s+пост|сотрудничеств|реклама\s+в\s+группе)",
+    re.I,
+)
+PROMO_BLOCK_RE=re.compile(
+    r"(no\s+ads|no\s+advertis(?:ing|ements?)|no\s+promo|spam\s+prohibited|"
+    r"reklam\s+yasak|reklam\s+yapmay[ıi]n|tan[ıi]t[ıi]m\s+yasak|spam\s+yasak|"
+    r"без\s+реклам|реклама\s+запрещена|спам\s+запрещен)",
+    re.I,
+)
 
 # Verified private/invite-only communities are never auto-joined. They are seeded
 # into the same JOIN LIST mechanism so the user can decide whether to join them.
@@ -42,6 +54,17 @@ def _doc_id(kind,value):
 def _extract(text):
     text=str(text or "")
     return set(PUBLIC_RE.findall(text)), {f"https://t.me/{x}" for x in INVITE_RE.findall(text)}
+
+
+def _promo_policy(text):
+    text=" ".join(str(text or "").split())
+    blocked=PROMO_BLOCK_RE.search(text)
+    allowed=PROMO_ALLOW_RE.search(text)
+    if blocked:
+        return "forbidden", blocked.group(0)[:120]
+    if allowed:
+        return "allowed", allowed.group(0)[:120]
+    return "unknown", ""
 
 
 def _dynamic_frontier(limit=80):
@@ -171,12 +194,22 @@ async def _collect_candidates():
             try:
                 entity=await client.get_entity(username)
                 if isinstance(entity,Channel) and getattr(entity,"megagroup",False) and getattr(entity,"username",None):
+                    about=""
+                    try:
+                        full=await client(GetFullChannelRequest(entity))
+                        about=str(getattr(getattr(full,"full_chat",None),"about","") or "")
+                    except Exception:
+                        pass
+                    promo_policy,promo_evidence=_promo_policy(about)
                     verified.append((
                         str(entity.username),
                         str(getattr(entity,"title","") or username),
                         int(public_mentions.get(username,0)),
                         len(public_sources.get(username,set())),
                         sorted(public_sources.get(username,set()))[:20],
+                        promo_policy,
+                        promo_evidence,
+                        about[:1200],
                     ))
             except FloodWaitError as exc:
                 print(f"TELEGRAM_NETWORK_VERIFY_FLOOD_WAIT seconds={exc.seconds}"); break
@@ -194,15 +227,20 @@ def crawl_network():
     db=main.firestore_client()
     if not db: return {"public_new":0,"private_new":0}
     now=main.now_utc().isoformat(); public_new=[]; private_new=[]
-    for username,title,mention_count,mention_source_count,mention_sources in verified:
+    promo_allowed=[]
+    for username,title,mention_count,mention_source_count,mention_sources,promo_policy,promo_evidence,about in verified:
         ref=db.collection(COLLECTION).document(_doc_id("telegram_public",username)); existed=ref.get().exists
         discovery_score=min(100, mention_source_count*12 + min(40,mention_count*3))
         ref.set({
             "type":"telegram_public","market":"north_cyprus","username":username,"title":title,
             "url":f"https://t.me/{username}","status":"active","discovered_by":"telegram_network_crawler",
             "mention_count":mention_count,"mention_source_count":mention_source_count,
-            "mention_sources":mention_sources,"discovery_score":discovery_score,"last_seen":now
+            "mention_sources":mention_sources,"discovery_score":discovery_score,
+            "promo_policy":promo_policy,"promo_evidence":promo_evidence,"about":about,
+            "last_seen":now
         },merge=True)
+        if promo_policy=="allowed":
+            promo_allowed.append((username,title,discovery_score,promo_evidence))
         if not existed: public_new.append(f"@{username}")
     for invite in sorted(invites):
         ref=db.collection(COLLECTION).document(_doc_id("telegram_private_invite",invite)); existed=ref.get().exists
@@ -211,9 +249,11 @@ def crawl_network():
     top=sorted(verified,key=lambda x:(x[3],x[2]),reverse=True)[:10]
     print(f"TELEGRAM_NETWORK_COMPLETE public_verified={len(verified)} public_new={len(public_new)} private_new={len(private_new)}")
     if top:
-        print("TELEGRAM_NETWORK_TOP "+", ".join(f"@{u}:sources={sc}:mentions={mc}" for u,t,mc,sc,src in top))
+        print("TELEGRAM_NETWORK_TOP "+", ".join(f"@{u}:sources={sc}:mentions={mc}" for u,t,mc,sc,src,pp,pe,about in top))
+    if promo_allowed:
+        print("TELEGRAM_PROMO_OPPORTUNITIES "+", ".join(f"@{u}:score={score}:{ev}" for u,t,score,ev in sorted(promo_allowed,key=lambda x:x[2],reverse=True)[:12]))
     if private_new:
         main.notify_telegram("🔗 BAY-S NC JOIN LIST\nYeni private Telegram grup adayları bulundu. Otomatik katılım YOK.\n"+"\n".join(private_new[:8]))
-    return {"public_new":len(public_new),"private_new":len(private_new)}
+    return {"public_new":len(public_new),"private_new":len(private_new),"promo_allowed":len(promo_allowed)}
 
 if __name__=="__main__": crawl_network()
