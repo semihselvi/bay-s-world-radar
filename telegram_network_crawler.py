@@ -44,10 +44,43 @@ def _extract(text):
     return set(PUBLIC_RE.findall(text)), {f"https://t.me/{x}" for x in INVITE_RE.findall(text)}
 
 
+def _dynamic_frontier(limit=80):
+    db=main.firestore_client()
+    if not db:
+        return []
+    rows=[]
+    try:
+        for doc in db.collection(COLLECTION).limit(1000).stream():
+            data=doc.to_dict() or {}
+            if data.get("market")!="north_cyprus" or data.get("type")!="telegram_public":
+                continue
+            if data.get("status")!="active":
+                continue
+            username=str(data.get("username") or "").strip().lstrip("@")
+            if not username:
+                continue
+            score=float(data.get("discovery_score",0) or 0)+float(data.get("priority_score",0) or 0)
+            rows.append((score,username))
+    except Exception as exc:
+        print("TELEGRAM_NETWORK_FRONTIER_LOAD_ERROR",exc)
+        return []
+    rows.sort(reverse=True)
+    out=[]; seen=set()
+    for score,username in rows:
+        key=username.lower()
+        if key in seen:
+            continue
+        seen.add(key); out.append(username)
+        if len(out)>=limit:
+            break
+    return out
+
+
 async def _collect_candidates():
     api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip(); session=os.getenv("TELEGRAM_STRING_SESSION","").strip()
     if not api_id or not api_hash or not session: return set(),set(STATIC_JOIN_CANDIDATES)
     max_dialogs=int(os.getenv("WORLD_TELEGRAM_NETWORK_DIALOGS","40")); max_messages=int(os.getenv("WORLD_TELEGRAM_NETWORK_MESSAGES","80"))
+    frontier_limit=int(os.getenv("WORLD_TELEGRAM_NETWORK_FRONTIER","80"))
     cutoff=datetime.now(timezone.utc)-timedelta(days=int(os.getenv("WORLD_TELEGRAM_NETWORK_DAYS","14")))
     client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
     if not await client.is_user_authorized(): await client.disconnect(); return set(),set(STATIC_JOIN_CANDIDATES)
@@ -61,13 +94,44 @@ async def _collect_candidates():
             if not _nc_title(title): continue
             dialogs.append((entity,title))
             if len(dialogs)>=max_dialogs: break
+        joined_ids={int(getattr(entity,"id",0) or 0) for entity,title in dialogs}
+        frontier_added=0
+        for username in _dynamic_frontier(frontier_limit):
+            try:
+                entity=await client.get_entity(username)
+                entity_id=int(getattr(entity,"id",0) or 0)
+                if entity_id in joined_ids or isinstance(entity,User) or not isinstance(entity,(Channel,Chat)):
+                    continue
+                title=getattr(entity,"title","") or username
+                dialogs.append((entity,title))
+                joined_ids.add(entity_id)
+                frontier_added+=1
+            except FloodWaitError as exc:
+                print(f"TELEGRAM_NETWORK_FRONTIER_FLOOD_WAIT seconds={exc.seconds}")
+                break
+            except Exception:
+                pass
+        print(f"TELEGRAM_NETWORK_FRONTIER added={frontier_added} total_scan_sources={len(dialogs)}")
+
         for entity,title in dialogs:
             try:
                 about=""
                 if isinstance(entity,Channel):
                     try:
-                        full=await client(GetFullChannelRequest(entity)); about=str(getattr(getattr(full,"full_chat",None),"about","") or "")
-                    except Exception: pass
+                        full=await client(GetFullChannelRequest(entity))
+                        about=str(getattr(getattr(full,"full_chat",None),"about","") or "")
+                        linked_id=getattr(getattr(full,"full_chat",None),"linked_chat_id",None)
+                        if linked_id:
+                            for linked in getattr(full,"chats",[]) or []:
+                                if int(getattr(linked,"id",0) or 0)!=int(linked_id):
+                                    continue
+                                linked_username=str(getattr(linked,"username","") or "").strip()
+                                if linked_username:
+                                    public.add(linked_username)
+                                    public_mentions[linked_username]+=2
+                                    public_sources[linked_username].add(title+" [linked discussion]")
+                    except Exception:
+                        pass
                 p,i=_extract(about); public|=p; invites|=i
                 for username in p:
                     public_mentions[username]+=1
@@ -80,6 +144,19 @@ async def _collect_candidates():
                     for username in p:
                         public_mentions[username]+=1
                         public_sources[username].add(title)
+
+                    fwd=getattr(msg,"forward",None)
+                    from_id=getattr(fwd,"from_id",None) if fwd else None
+                    if from_id is not None:
+                        try:
+                            origin=await client.get_entity(from_id)
+                            origin_username=str(getattr(origin,"username","") or "").strip()
+                            if origin_username:
+                                public.add(origin_username)
+                                public_mentions[origin_username]+=2
+                                public_sources[origin_username].add(title+" [forward]")
+                        except Exception:
+                            pass
             except FloodWaitError as exc:
                 print(f"TELEGRAM_NETWORK_FLOOD_WAIT chat={title!r} seconds={exc.seconds}"); break
             except Exception as exc: print(f"TELEGRAM_NETWORK_CHAT_ERROR chat={title!r} {exc}")
