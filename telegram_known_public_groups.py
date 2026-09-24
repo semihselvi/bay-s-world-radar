@@ -59,44 +59,84 @@ def _author(sender):
 
 
 async def _collect():
-    api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip()
-    if not api_id or not api_hash: return []
-    lookback=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback)
+    api_id=os.getenv("TELEGRAM_API_ID","").strip()
+    api_hash=os.getenv("TELEGRAM_API_HASH","").strip()
+    if not api_id or not api_hash:
+        return []
+
+    lookback=int(os.getenv("WORLD_LOOKBACK_HOURS","8"))
+    cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback)
     universe=KNOWN_GROUPS+_dynamic_groups(int(os.getenv("WORLD_TELEGRAM_DYNAMIC_GROUP_LIMIT","100")))
     ordered_groups=ranked_usernames(universe)
     max_groups=max(1,min(len(ordered_groups),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","40"))))
     max_messages=max(30,min(180,int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES","100"))))
+
     slots=await tsp.open_pool(int(api_id),api_hash)
-    if not slots: return []
-    items={}; scanned=0; slot_index=0
+    if not slots:
+        return []
+
+    items={}
+    scanned=0
+    slot_index=0
     try:
         for username in ordered_groups[:max_groups]:
             attempts=0
             while attempts < len(slots):
-                slot=slots[slot_index]; client=slot.client
+                slot=slots[slot_index]
+                client=slot.client
                 try:
                     chat=await client.get_entity(username)
-                if not isinstance(chat,(Channel,Chat)) or isinstance(chat,User): continue
-                if isinstance(chat,Channel) and getattr(chat,"broadcast",False) and not getattr(chat,"megagroup",False): continue
-                scanned+=1; count=0
-                actual_username=str(getattr(chat,"username",None) or username).strip().lstrip("@")
-                telegram_chat_id=str(int(getattr(chat,"id",0) or 0))
-                async for msg in client.iter_messages(chat,limit=max_messages):
-                    if not msg or not getattr(msg,"message",None): continue
-                    dt=getattr(msg,"date",None)
-                    if dt and dt.tzinfo is None: dt=dt.replace(tzinfo=timezone.utc)
-                    if dt and dt<cutoff: break
-                    if not dt: continue
-                    sender=None
-                    try: sender=await msg.get_sender()
-                    except Exception: pass
-                    author=_author(sender)
-                    if not author: continue
-                    text=str(msg.message).strip()
-                    if not text: continue
-                    url=_link(chat,msg.id); parent_text=await reply_context(msg)
-                    items[url]={"source":"Telegram Known/Dynamic NC Group","url":url,"title":f"Telegram Group | {getattr(chat,'title','') or username} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":author,"telegram_user_id":str(int(getattr(sender,"id",0) or 0)),"telegram_chat_id":telegram_chat_id,"source_bucket":"telegram_known_nc_groups","telegram_chat":getattr(chat,"title","") or username,"source_username":actual_username,"reply_context":parent_text}
-                    count+=1
+                    if not isinstance(chat,(Channel,Chat)) or isinstance(chat,User):
+                        break
+                    if isinstance(chat,Channel) and getattr(chat,"broadcast",False) and not getattr(chat,"megagroup",False):
+                        break
+
+                    scanned+=1
+                    count=0
+                    actual_username=str(getattr(chat,"username",None) or username).strip().lstrip("@")
+                    telegram_chat_id=str(int(getattr(chat,"id",0) or 0))
+
+                    async for msg in client.iter_messages(chat,limit=max_messages):
+                        if not msg or not getattr(msg,"message",None):
+                            continue
+                        dt=getattr(msg,"date",None)
+                        if dt and dt.tzinfo is None:
+                            dt=dt.replace(tzinfo=timezone.utc)
+                        if dt and dt<cutoff:
+                            break
+                        if not dt:
+                            continue
+
+                        sender=None
+                        try:
+                            sender=await msg.get_sender()
+                        except Exception:
+                            pass
+                        author=_author(sender)
+                        if not author:
+                            continue
+                        text=str(msg.message).strip()
+                        if not text:
+                            continue
+
+                        url=_link(chat,msg.id)
+                        parent_text=await reply_context(msg)
+                        items[url]={
+                            "source":"Telegram Known/Dynamic NC Group",
+                            "url":url,
+                            "title":f"Telegram Group | {getattr(chat,'title','') or username} | North Cyprus",
+                            "text":text,
+                            "published":dt.astimezone(timezone.utc).isoformat(),
+                            "author":author,
+                            "telegram_user_id":str(int(getattr(sender,"id",0) or 0)),
+                            "telegram_chat_id":telegram_chat_id,
+                            "source_bucket":"telegram_known_nc_groups",
+                            "telegram_chat":getattr(chat,"title","") or username,
+                            "source_username":actual_username,
+                            "reply_context":parent_text,
+                        }
+                        count+=1
+
                     print(f"TELEGRAM_KNOWN_GROUP @{username} recent_human_messages={count} session={slot.name}")
                     break
                 except FloodWaitError as exc:
@@ -109,10 +149,11 @@ async def _collect():
                 except Exception as exc:
                     print(f"TELEGRAM_KNOWN_GROUP_ERROR @{username} session={slot.name} {exc}")
                     break
-    finally: await tsp.close_pool(slots)
+    finally:
+        await tsp.close_pool(slots)
+
     print(f"TELEGRAM_KNOWN_GROUP_COUNTS universe={len(ordered_groups)} scanned={scanned} unique_messages={len(items)}")
     return list(items.values())
-
 
 def collect_known_public_groups():
     try: return asyncio.run(_collect())
