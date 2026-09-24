@@ -56,10 +56,33 @@ EXTRA_GLOBAL_QUERIES = [
 ]
 
 PUBLIC_GROUP_DISCOVERY_QUERIES = [
-    "North Cyprus", "Northern Cyprus", "North Cyprus property", "North Cyprus expats", "Kuzey Kıbrıs",
-    "Kuzey Kıbrıs emlak", "Kuzey Kıbrıs gayrimenkul", "Северный Кипр", "Северный Кипр недвижимость",
-    "Северный Кипр чат", "Искеле недвижимость", "İskele", "Long Beach Cyprus", "Girne", "Esentepe",
-    "Famagusta Cyprus", "Caesar Resort Cyprus", "Grand Sapphire Cyprus", "Isatis Cyprus", "قبرس شمالی",
+    # Core market
+    "North Cyprus", "Northern Cyprus", "North Cyprus property", "North Cyprus real estate",
+    "North Cyprus expats", "North Cyprus community", "North Cyprus chat", "North Cyprus forum",
+    "North Cyprus investment", "North Cyprus investors", "North Cyprus residents",
+    # Turkish
+    "Kuzey Kıbrıs", "Kuzey Kıbrıs emlak", "Kuzey Kıbrıs gayrimenkul", "Kuzey Kıbrıs yatırım",
+    "Kuzey Kıbrıs yaşam", "Kuzey Kıbrıs gurbetçiler", "KKTC emlak", "KKTC yatırım",
+    "KKTC alım satım", "KKTC yabancılar", "KKTC öğrenciler",
+    # Russian / CIS
+    "Северный Кипр", "Северный Кипр недвижимость", "Северный Кипр чат",
+    "Северный Кипр инвестиции", "Северный Кипр русские", "Северный Кипр экспаты",
+    "Северный Кипр жизнь", "Северный Кипр купить квартиру", "Северный Кипр форум",
+    "Искеле недвижимость", "Искеле чат", "Гирне недвижимость", "Фамагуста чат",
+    # Areas and projects
+    "İskele", "Iskele Cyprus", "Long Beach Cyprus", "Long Beach Iskele", "Girne", "Kyrenia expats",
+    "Esentepe", "Famagusta Cyprus", "Gazimagusa", "Alsancak", "Lapta", "Tatlısu", "Bafra Cyprus",
+    "Yenibogazici", "Caesar Resort Cyprus", "Grand Sapphire Cyprus", "Royal Sun Long Beach",
+    "Riverside Life Cyprus", "Isatis Cyprus", "Elysium Cyprus",
+    # Non-property communities where buyers often appear
+    "North Cyprus students", "North Cyprus university", "North Cyprus relocation",
+    "North Cyprus foreigners", "North Cyprus Russian", "North Cyprus Iranian",
+    "North Cyprus Turkish", "North Cyprus marketplace", "North Cyprus buy sell",
+    # German / Polish / Nordic / Arabic / Persian
+    "Nordzypern", "Nordzypern Immobilien", "Nordzypern Deutsche",
+    "Cypr Północny", "Cypr Północny nieruchomości",
+    "Norra Cypern", "Nord-Kypros", "Chypre du Nord", "Chipre del Norte",
+    "قبرص الشمالية", "شمال قبرص عقارات", "قبرس شمالی", "قبرس شمالی املاک",
 ]
 
 
