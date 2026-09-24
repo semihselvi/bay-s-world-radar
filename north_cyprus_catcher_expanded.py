@@ -149,6 +149,55 @@ def _direct_tenant_lead(item, intent, cutoff):
     return lead, "accepted_tenant_intent"
 
 
+def _buyer_review_candidate(item, intent):
+    if str(intent.get("intent_class") or "") != "UNKNOWN":
+        return None
+    req=dict(intent.get("requirements") or {})
+    text=" ".join(str(item.get(k) or "") for k in ("text","reply_context","title","telegram_chat")).strip()
+    low=text.casefold()
+
+    score=0
+    reasons=[]
+    if req.get("property_type"):
+        score+=2; reasons.append("property")
+    if req.get("regions"):
+        score+=2; reasons.append("region")
+    budget=str(req.get("budget") or "").strip()
+    if budget:
+        score+=4; reasons.append("budget")
+    if any(x in low for x in ("looking for","arıyorum","ищу","нужна квартира","нужен дом","need apartment","need villa")):
+        score+=2; reasons.append("demand")
+    if any(x in low for x in ("buy","purchase","satın","куп","покуп","kaufen","acheter","kupić","kupic")):
+        score+=4; reasons.append("purchase_word")
+    if any(x in low for x in ("rent","rental","kiralık","kirala","аренд","сним","miete","huur")):
+        score-=5; reasons.append("rental_penalty")
+
+    if score < 5:
+        return None
+
+    row=dict(item)
+    row["review_score"]=score
+    row["review_reasons"]=reasons
+    row["review_requirements"]=req
+    row["review_intent_confidence"]=int(intent.get("intent_confidence") or 0)
+    row["reviewed_at"]=base.main.now_utc().isoformat()
+    row["review_type"]="buyer_unknown_nearmiss"
+    return row
+
+
+def _save_buyer_review(db, item):
+    if not db or not item:
+        return False
+    try:
+        ident=str(item.get("telegram_user_id") or item.get("author") or "")+"|"+str(item.get("url") or base.main.dedupe_key(item))
+        doc_id=hashlib.sha1(ident.encode("utf-8")).hexdigest()
+        db.collection("bay_s_nc_buyer_review").document(doc_id).set(item,merge=True)
+        return True
+    except Exception as exc:
+        print("NC_BUYER_REVIEW_SAVE_ERROR",repr(exc))
+        return False
+
+
 def _classify_and_learn(item, cutoff):
     intent = classify_intent(item)
     _decorate_intent(item, intent)
@@ -238,7 +287,8 @@ def run():
     stitched=base.stitch_conversations(originals,max_gap_hours=int(os.getenv("NC_STITCH_GAP_HOURS","6")))
     raw_items=semantic_dedupe_items(originals+stitched)
 
-    stats={}; accepted=[]; seen=set()
+    stats={}; accepted=[]; seen=set(); review_saved=0; review_seen=0
+    db=base.main.firestore_client()
     for item in raw_items:
         key=item.get("url") or base.main.dedupe_key(item)
         identity_hint=str(item.get("telegram_user_id") or item.get("author") or "")
@@ -247,6 +297,20 @@ def run():
         seen.add(key)
         lead,reason=base._classify(item,cutoff)
         stats[reason]=stats.get(reason,0)+1
+        if reason=="intent_unknown":
+            review_seen+=1
+            intent=classify_intent(item)
+            review=_buyer_review_candidate(item,intent)
+            if review and _save_buyer_review(db,review):
+                review_saved+=1
+                print("NC_BUYER_REVIEW",json.dumps({
+                    "score":review.get("review_score"),
+                    "reasons":review.get("review_reasons"),
+                    "author":review.get("author"),
+                    "chat":review.get("telegram_chat"),
+                    "text":" ".join(str(review.get("text") or "").split())[:220],
+                    "url":review.get("url"),
+                },ensure_ascii=False))
         if lead and lead.get("intent_class") in {"BUYER","TENANT"}:
             accepted.append(lead)
 
@@ -256,7 +320,7 @@ def run():
     rank={"HOT":3,"WARM":2}
     accepted.sort(key=lambda x:(rank.get(x.get("classification"),0),int(x.get("intent_confidence") or x.get("intent_score") or 0),int(x.get("credibility_score") or 0)),reverse=True)
 
-    db=base.main.firestore_client(); new_leads=[]
+    new_leads=[]
     for lead in accepted:
         if base._notified_before(db,lead):
             continue
@@ -270,10 +334,10 @@ def run():
             for lead in accepted[:100]:
                 ident=lead.get("canonical_identity") or lead.get("url") or lead.get("title","")
                 doc_id=hashlib.sha1(str(ident).encode("utf-8")).hexdigest(); batch.set(ref.collection("leads").document(doc_id),lead,merge=True)
-            batch.set(ref,{"started_at":started.isoformat(),"finished_at":base.main.now_utc().isoformat(),"lookback_hours":lookback_hours,"telegram_global_messages":len(global_items),"forum_recent_posts":len(forum_items),"conversation_stitches":len(stitched),"semantic_candidates":len(raw_items),"accepted_people":len(accepted),"new_to_notify":len(new_leads),"filter_stats":stats},merge=True); batch.commit()
+            batch.set(ref,{"started_at":started.isoformat(),"finished_at":base.main.now_utc().isoformat(),"lookback_hours":lookback_hours,"telegram_global_messages":len(global_items),"forum_recent_posts":len(forum_items),"conversation_stitches":len(stitched),"semantic_candidates":len(raw_items),"accepted_people":len(accepted),"new_to_notify":len(new_leads),"review_unknown_seen":review_seen,"review_saved":review_saved,"filter_stats":stats},merge=True); batch.commit()
         except Exception as exc: print("NC_CATCHER_FIRESTORE_ERROR",exc)
 
-    print("NC_CATCHER_COMPLETE",json.dumps({"lookback_hours":lookback_hours,"telegram_global":len(global_items),"forum_posts":len(forum_items),"conversation_stitches":len(stitched),"semantic_candidates":len(raw_items),"accepted_people":len(accepted),"new":len(new_leads),"stats":stats},ensure_ascii=False))
+    print("NC_CATCHER_COMPLETE",json.dumps({"lookback_hours":lookback_hours,"telegram_global":len(global_items),"forum_posts":len(forum_items),"conversation_stitches":len(stitched),"semantic_candidates":len(raw_items),"accepted_people":len(accepted),"new":len(new_leads),"review_unknown_seen":review_seen,"review_saved":review_saved,"stats":stats},ensure_ascii=False))
 
     if new_leads:
         lines=[f"🎯 BAY-S NC BUYER CATCHER | {len(new_leads)} GERÇEK ADAY"]
