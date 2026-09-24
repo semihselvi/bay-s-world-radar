@@ -31,6 +31,7 @@ from telegram_channel_comments import collect_channel_comments
 from telegram_known_public_groups import collect_known_public_groups
 from telegram_member_deep_search import collect_member_deep_search
 from telegram_network_crawler import crawl_network
+from telegram_tgden_discovery import discover_tgden
 
 for _domain in OPEN_WEB_ALLOWED_DOMAINS:
     nf.ALLOWED_USER_DOMAINS.add(_domain)
@@ -236,6 +237,7 @@ base._classify = _classify_and_learn
 
 
 def expanded_collect_global():
+    tgden_stats=discover_tgden()
     network_stats=crawl_network()
     buckets=[]
     normal_global=_original_collect_global(); buckets.append(("telegram_global_public",normal_global))
@@ -260,7 +262,7 @@ def expanded_collect_global():
     cross_profiles=stitch_cross_group_identity(collected,max_gap_hours=72,max_parts=8)
     collected.extend(cross_profiles)
 
-    print("NC_EXPANDED_SOURCE_COUNTS",counts,"network",network_stats,"cross_group_profiles",len(cross_profiles),"semantic_unique",len(collected))
+    print("NC_EXPANDED_SOURCE_COUNTS",counts,"tgden",tgden_stats,"network",network_stats,"cross_group_profiles",len(cross_profiles),"semantic_unique",len(collected))
     return collected
 
 
