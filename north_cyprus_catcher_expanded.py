@@ -35,6 +35,7 @@ from telegram_tgden_discovery import discover_tgden
 from telegram_recommendation_discovery import discover_recommendations
 from telegram_candidate_validator import validate_candidates
 from tgden_buyer_posts import collect_tgden_buyer_posts
+from reddit_archive_buyer import collect_reddit_archive_buyers
 
 for _domain in OPEN_WEB_ALLOWED_DOMAINS:
     nf.ALLOWED_USER_DOMAINS.add(_domain)
@@ -208,6 +209,9 @@ def _save_buyer_review(db, item):
 
 
 def _classify_and_learn(item, cutoff):
+    effective_cutoff=cutoff
+    if str(item.get("source_bucket") or "").startswith("reddit_archive_"):
+        effective_cutoff=base.main.now_utc()-timedelta(days=14)
     intent = classify_intent(item)
     _decorate_intent(item, intent)
     intent_class = intent.get("intent_class")
@@ -218,9 +222,9 @@ def _classify_and_learn(item, cutoff):
     elif intent_class in {"SERVICE", "FINANCIAL", "SPAM", "UNKNOWN"}:
         lead, reason = None, "intent_" + str(intent_class).lower()
     elif intent_class == "TENANT":
-        lead, reason = _direct_tenant_lead(item, intent, cutoff)
+        lead, reason = _direct_tenant_lead(item, intent, effective_cutoff)
     elif intent_class == "BUYER":
-        lead, reason = _original_classify(item, cutoff)
+        lead, reason = _original_classify(item, effective_cutoff)
         if lead:
             _decorate_intent(lead, intent)
             # Buyer Catcher final output no longer exposes POTENTIAL. A direction-
@@ -248,6 +252,7 @@ def expanded_collect_global():
     channel_comments=collect_channel_comments(); buckets.append(("telegram_channel_comments",channel_comments))
     open_web=collect_open_web(); buckets.append(("open_web_reddit_bing_dynamic",open_web))
     tgden_posts=collect_tgden_buyer_posts(); buckets.append(("tgden_public_posts",tgden_posts))
+    reddit_archive=collect_reddit_archive_buyers(); buckets.append(("reddit_archive_buyers",reddit_archive))
     network_stats=crawl_network()
     recommendation_stats=discover_recommendations()
     candidate_stats=validate_candidates()
