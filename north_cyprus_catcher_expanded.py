@@ -1,5 +1,5 @@
 import hashlib
-# source discovery scoring refreshed
+# source discovery scoring test trigger
 import json
 import os
 from datetime import datetime, timezone, timedelta
