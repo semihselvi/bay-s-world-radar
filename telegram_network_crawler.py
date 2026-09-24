@@ -109,7 +109,8 @@ async def _collect_candidates():
 
 
 def crawl_network():
-    if os.getenv("WORLD_TELEGRAM_NETWORK_CRAWL","0").strip()!="1": return {"public_new":0,"private_new":0}
+    enabled=os.getenv("WORLD_TELEGRAM_NETWORK_CRAWL","0").strip()=="1" or os.getenv("GITHUB_EVENT_NAME","").strip()=="push"
+    if not enabled: return {"public_new":0,"private_new":0}
     try: verified,invites=asyncio.run(_collect_candidates())
     except Exception as exc:
         print("TELEGRAM_NETWORK_EXCEPTION",exc); return {"public_new":0,"private_new":0}
