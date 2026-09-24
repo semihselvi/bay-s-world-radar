@@ -114,11 +114,12 @@ def discover_recommendations():
             "username":username,
             "title":title,
             "url":f"https://t.me/{username}",
-            "status":"active",
+            "status":"active" if nc_title else "candidate",
             "discovered_by":"telegram_channel_recommendations",
             "recommended_from":refs,
             "recommendation_source_count":len(refs),
             "discovery_score":score,
+            "needs_validation": not nc_title,
             "last_seen":now,
         },merge=True)
         saved+=1
