@@ -8,6 +8,7 @@ from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Chat, User
 
 import main
+import telegram_session_pool as tsp
 from north_cyprus_source_performance import ranked_usernames
 from telegram_message_context import reply_context
 
@@ -58,20 +59,23 @@ def _author(sender):
 
 
 async def _collect():
-    api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip(); session=os.getenv("TELEGRAM_STRING_SESSION","").strip()
-    if not api_id or not api_hash or not session: return []
+    api_id=os.getenv("TELEGRAM_API_ID","").strip(); api_hash=os.getenv("TELEGRAM_API_HASH","").strip()
+    if not api_id or not api_hash: return []
     lookback=int(os.getenv("WORLD_LOOKBACK_HOURS","8")); cutoff=datetime.now(timezone.utc)-timedelta(hours=lookback)
     universe=KNOWN_GROUPS+_dynamic_groups(int(os.getenv("WORLD_TELEGRAM_DYNAMIC_GROUP_LIMIT","100")))
     ordered_groups=ranked_usernames(universe)
     max_groups=max(1,min(len(ordered_groups),int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_LIMIT","40"))))
     max_messages=max(30,min(180,int(os.getenv("WORLD_TELEGRAM_KNOWN_GROUP_MESSAGES","100"))))
-    client=TelegramClient(StringSession(session),int(api_id),api_hash); await client.connect()
-    if not await client.is_user_authorized(): await client.disconnect(); return []
-    items={}; scanned=0
+    slots=await tsp.open_pool(int(api_id),api_hash)
+    if not slots: return []
+    items={}; scanned=0; slot_index=0
     try:
         for username in ordered_groups[:max_groups]:
-            try:
-                chat=await client.get_entity(username)
+            attempts=0
+            while attempts < len(slots):
+                slot=slots[slot_index]; client=slot.client
+                try:
+                    chat=await client.get_entity(username)
                 if not isinstance(chat,(Channel,Chat)) or isinstance(chat,User): continue
                 if isinstance(chat,Channel) and getattr(chat,"broadcast",False) and not getattr(chat,"megagroup",False): continue
                 scanned+=1; count=0
@@ -93,12 +97,19 @@ async def _collect():
                     url=_link(chat,msg.id); parent_text=await reply_context(msg)
                     items[url]={"source":"Telegram Known/Dynamic NC Group","url":url,"title":f"Telegram Group | {getattr(chat,'title','') or username} | North Cyprus","text":text,"published":dt.astimezone(timezone.utc).isoformat(),"author":author,"telegram_user_id":str(int(getattr(sender,"id",0) or 0)),"telegram_chat_id":telegram_chat_id,"source_bucket":"telegram_known_nc_groups","telegram_chat":getattr(chat,"title","") or username,"source_username":actual_username,"reply_context":parent_text}
                     count+=1
-                print(f"TELEGRAM_KNOWN_GROUP @{username} recent_human_messages={count}")
-            except FloodWaitError as exc:
-                print(f"TELEGRAM_KNOWN_GROUP_FLOOD_WAIT @{username} seconds={exc.seconds}"); break
-            except Exception as exc:
-                print(f"TELEGRAM_KNOWN_GROUP_ERROR @{username} {exc}")
-    finally: await client.disconnect()
+                    print(f"TELEGRAM_KNOWN_GROUP @{username} recent_human_messages={count} session={slot.name}")
+                    break
+                except FloodWaitError as exc:
+                    print(f"TELEGRAM_KNOWN_GROUP_FLOOD_WAIT @{username} session={slot.name} seconds={exc.seconds}")
+                    attempts+=1
+                    if attempts >= len(slots):
+                        break
+                    slot_index=tsp.rotate_index(slots,slot_index)
+                    continue
+                except Exception as exc:
+                    print(f"TELEGRAM_KNOWN_GROUP_ERROR @{username} session={slot.name} {exc}")
+                    break
+    finally: await tsp.close_pool(slots)
     print(f"TELEGRAM_KNOWN_GROUP_COUNTS universe={len(ordered_groups)} scanned={scanned} unique_messages={len(items)}")
     return list(items.values())
 
