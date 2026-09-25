@@ -6,8 +6,6 @@ on:
     paths:
       - vk_radar.py
       - .github/workflows/vk-radar.yml
-  schedule:
-    - cron: "17 5,9,13,17,21 * * *"
 
 concurrency:
   group: vk-radar
