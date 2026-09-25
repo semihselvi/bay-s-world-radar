@@ -1,8 +1,8 @@
 import os,re,hashlib
 from datetime import datetime,timezone,timedelta
 from urllib.parse import quote_plus
+from xml.etree import ElementTree as ET
 import requests
-from bs4 import BeautifulSoup
 import main
 
 QUERIES=[
@@ -16,12 +16,16 @@ BUY=re.compile(r'(хочу\s+купить|куплю|ищу.{0,30}(?:купит�
 SELL=re.compile(r'(прода[её]тся|продаю|на продажу|цена продажи|агентств|риелтор|риэлтор)',re.I)
 RENT=re.compile(r'(сниму|аренд|снять|сдается|сдаётся)',re.I)
 
+def _text(item,tag):
+    node=item.find(tag)
+    return ''.join(node.itertext()).strip() if node is not None else ''
+
 def bing(q):
     url='https://www.bing.com/search?q='+quote_plus('site:vk.com '+q)+'&format=rss'
     r=requests.get(url,headers={'User-Agent':'Mozilla/5.0'},timeout=20); r.raise_for_status()
-    soup=BeautifulSoup(r.text,'xml'); out=[]
-    for it in soup.find_all('item'):
-        out.append({'title':it.title.get_text(' ',strip=True) if it.title else '', 'text':it.description.get_text(' ',strip=True) if it.description else '', 'url':it.link.get_text(strip=True) if it.link else '', 'published':it.pubDate.get_text(strip=True) if it.pubDate else ''})
+    root=ET.fromstring(r.content); out=[]
+    for it in root.findall('.//item'):
+        out.append({'title':_text(it,'title'),'text':_text(it,'description'),'url':_text(it,'link'),'published':_text(it,'pubDate')})
     return out
 
 def score(row):
