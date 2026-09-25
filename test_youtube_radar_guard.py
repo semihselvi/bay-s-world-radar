@@ -64,6 +64,12 @@ class YouTubeRadarGuardTests(unittest.TestCase):
         lead = guard.classify_comment_guarded(self.item(followup, reply_context=parent))
         self.assertIsNone(lead)
 
+    def test_rejects_location_university_curiosity(self):
+        lead = guard.classify_comment_guarded(self.item(
+            "@northcyprusinvest мне тоже интересно про Гюзельюрт. Хочу посмотреть именно этот район, университет"
+        ))
+        self.assertIsNone(lead)
+
     def test_does_not_block_fresh_buyer_only_because_of_residency_goal(self):
         lead = guard.classify_comment_guarded(self.item(
             "Хочу купить студию в Caesar Resort. Какая цена и подойдет ли она для ВНЖ?"
