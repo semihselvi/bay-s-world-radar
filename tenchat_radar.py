@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import main
+import russian_social_review as rsr
 
 UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/153 Safari/537.36"
 S=requests.Session()
@@ -188,7 +189,9 @@ def run():
         for com in row.get("comments",[]) or []:
             comment_count+=1
             score=score_comment(com.get("text",""),context)
-            if not score: continue
+            if not score:
+                rsr.save("tenchat",com.get("text",""),com.get("url") or row.get("url",""),com.get("author",""),row.get("title",""))
+                continue
             key=_key(row,com)
             seen=False
             if db:
