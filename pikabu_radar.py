@@ -118,14 +118,17 @@ def _legacy_comments(story_id):
         r=S.get("https://pikabu.ru/generate_xml_comm.php",params={"id":story_id},timeout=18)
         print("PIKABU_LEGACY_COMMENTS",story_id,r.status_code,len(r.text))
         if r.status_code!=200 or not r.text.strip(): return out
-        soup=BeautifulSoup(r.text,"xml")
-        for node in soup.find_all("comment"):
-            text=node.get_text(" ",strip=True)
+        try:
+            root=ET.fromstring(r.content)
+        except Exception:
+            return out
+        for node in root.iter("comment"):
+            text=" ".join("".join(node.itertext()).split())
             if not text: continue
             out.append({
-                "comment_id":str(node.get("id") or ""),
-                "author":str(node.get("nick") or ""),
-                "published":str(node.get("date") or ""),
+                "comment_id":str(node.attrib.get("id") or ""),
+                "author":str(node.attrib.get("nick") or ""),
+                "published":str(node.attrib.get("date") or ""),
                 "text":text[:3000],
             })
     except Exception as exc: print("PIKABU_LEGACY_COMMENT_ERROR",story_id,type(exc).__name__)
