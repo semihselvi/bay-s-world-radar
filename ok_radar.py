@@ -11,8 +11,11 @@ S=requests.Session(); S.headers.update({'User-Agent':UA,'Accept-Language':'ru-RU
 QUERIES=['Северный Кипр хочу купить квартиру','Северный Кипр ищу квартиру купить','Северный Кипр куплю недвижимость','Северный Кипр бюджет квартира','Искеле хочу купить квартиру','Искеле куплю 1+1','Искеле куплю 2+1','Лонг Бич Кипр хочу купить квартиру','Гирне хочу купить квартиру','Гирне хочу купить виллу','Северный Кипр недвижимость нужен вариант','Северный Кипр переезд купить квартиру']
 SEEDS=['https://ok.ru/northcyprusinvest','https://ok.ru/cypruslegend','https://ok.ru/group/61172585857171','https://ok.ru/group/54088607531008']
 NC=re.compile(r'(северн\w*\s+кипр\w*|искеле|лонг\s*бич|гирне|эсентепе|фамагуст|бафра|лапта|алсанджак)',re.I)
-BUY=re.compile(r'(хочу\s+купить|куплю|ищу.{0,80}(?:купить|квартир|вилл|недвиж)|бюджет.{0,80}(?:квартир|вилл|недвиж|покуп)|нужн\w*.{0,50}(?:квартир|вилл|недвиж)|подскажите.{0,70}(?:квартир|вилл|недвиж)|рассматрива\w*.{0,60}(?:покуп|квартир|вилл))',re.I|re.S)
-SELL=re.compile(r'(прода[её]тся|продаю|на продажу|агентств|риелтор|риэлтор|застройщик|предлагаем|стоимость\s+от)',re.I)
+# Buyer intent must be explicit and first-person / request-shaped. Generic words such as
+# "budget", "buy property" or our own search query are not sufficient anymore.
+BUY_STRICT=re.compile(r'(?:^|[\s.!?,;:])(?:я\s+)?(?:хочу|хотел(?:а)?\s+бы|планирую|собираюсь)\s+(?:себе\s+)?купить|(?:^|[\s.!?,;:])куплю\s+(?:квартир|вилл|дом|недвиж)|(?:^|[\s.!?,;:])ищу.{0,90}(?:для\s+покупки|чтобы\s+купить|купить\s+(?:квартир|вилл|дом|недвиж))|(?:мой|наш)\s+бюджет.{0,100}(?:квартир|вилл|дом|недвиж|покуп)|подскажите.{0,100}(?:где|что|какую|какой).{0,80}(?:купить|покуп)|нужн[аоы]?.{0,80}(?:квартир|вилл|дом).{0,80}(?:купить|покуп)',re.I|re.S)
+SELL=re.compile(r'(прода[её]тся|продаю|на\s+продажу|в\s+продаже|агентств|риелтор|риэлтор|застройщик|предлагаем|предлагается|стоимость\s+от|цена\s+от|скидк|акци[яи]|рассрочк|комисси|готовая\s+квартира|готовый\s+объект|инвестиционн|доходност|окупаемост|почему\s+стоит\s+купить|успейте\s+купить|звоните|пишите\s+в\s+(?:лич|директ)|подбер[её]м|подбор\s+недвиж)',re.I)
+PROMO=re.compile(r'(курс\s+фунта|историческ\w+\s+минимум|интересный\s+контент\s+в\s+группе|собственная\s+недвижимость.{0,80}позволяет|недвижимость\s+на\s+северном\s+кипре.{0,80}почему|подписывайтесь|наш\s+канал|наша\s+компания)',re.I|re.S)
 
 def valid(u):
     try: h=urlparse(u).netloc.lower(); return h=='ok.ru' or h.endswith('.ok.ru')
@@ -72,21 +75,43 @@ def enrich(row):
     try:
         r=requests.get(row['url'],headers={'User-Agent':UA,'Accept-Language':'ru-RU,ru;q=0.9'},timeout=15)
         if r.status_code!=200: return row
-        soup=BeautifulSoup(r.text,'html.parser'); full=' '.join(soup.stripped_strings)
-        row=dict(row); row['text']=(row.get('text','')+' '+full)[:20000]
-        if not row.get('title') and soup.title: row['title']=soup.title.get_text(' ',strip=True)[:300]
+        soup=BeautifulSoup(r.text,'html.parser')
+        # Do NOT append the whole page. OK search/navigation chrome can contain our query
+        # and previously created false buyer intent. Prefer topic metadata and article/main text.
+        pieces=[]
+        for attrs in ({'property':'og:description'},{'name':'description'}):
+            m=soup.find('meta',attrs=attrs)
+            if m and m.get('content'): pieces.append(m.get('content'))
+        for sel in ('article','main','[data-l*="topic"]'):
+            node=soup.select_one(sel)
+            if node:
+                pieces.append(' '.join(node.stripped_strings)[:6000])
+                break
+        core=' '.join(x for x in pieces if x)
+        row=dict(row)
+        row['page_core']=core[:9000]
+        if soup.title and not row.get('title'): row['title']=soup.title.get_text(' ',strip=True)[:300]
     except Exception: pass
     return row
 
 def score(row):
-    text=f"{row.get('title','')} {row.get('text','')}"
-    if not NC.search(text) or not BUY.search(text): return None
-    buyer_words=re.search(r'ищу|хочу\s+купить|куплю|нужн|бюджет|подскажите|рассматрива',text,re.I)
-    if SELL.search(text) and not buyer_words: return None
-    s=72
-    if re.search(r'бюджет|£|€|\$|\d{4,}',text): s+=10
-    if re.search(r'хочу\s+купить|куплю',text,re.I): s+=10
-    if re.search(r'искеле|лонг\s*бич|гирне|эсентепе',text,re.I): s+=5
+    title=str(row.get('title',''))
+    snippet=str(row.get('text',''))
+    core=str(row.get('page_core',''))
+    text=f'{title} {snippet} {core}'
+    if not NC.search(text): return None
+    if PROMO.search(text): return None
+    # Supply/marketing posts are rejected even when the page contains generic buyer wording.
+    # Only keep them if a clearly first-person buyer request exists in the actual topic core.
+    strict_core=f'{title} {core or snippet}'
+    buyer=BUY_STRICT.search(strict_core)
+    if not buyer: return None
+    if SELL.search(title) or (SELL.search(strict_core) and not re.search(r'(?:я\s+)?(?:хочу|планирую|собираюсь)\s+купить|куплю\s+(?:квартир|вилл|дом)|ищу.{0,70}(?:для\s+покупки|чтобы\s+купить)',strict_core,re.I|re.S)):
+        return None
+    s=78
+    if re.search(r'(?:мой|наш)\s+бюджет|£|€|\$|\b\d{4,}\b',strict_core,re.I): s+=8
+    if re.search(r'(?:я\s+)?(?:хочу|планирую|собираюсь)\s+купить|куплю\s+(?:квартир|вилл|дом)',strict_core,re.I): s+=8
+    if re.search(r'искеле|лонг\s*бич|гирне|эсентепе',strict_core,re.I): s+=4
     return min(s,97)
 
 def run():
@@ -101,12 +126,13 @@ def run():
     with ThreadPoolExecutor(max_workers=12) as ex:
         futs=[ex.submit(enrich,r) for r in rows]
         for f in as_completed(futs): enriched.append(f.result())
-    leads=[]
+    leads=[]; rejected=0
     for row in enriched:
         s=score(row)
         if s: row['intent']=s; leads.append(row)
+        else: rejected+=1
     leads.sort(key=lambda x:x['intent'],reverse=True)
-    print('OK_PROVIDER_COUNTS',provider_counts); print(f'OK_RADAR_COMPLETE candidates={len(unique)} enriched={len(enriched)} leads={len(leads)}')
+    print('OK_PROVIDER_COUNTS',provider_counts); print(f'OK_RADAR_COMPLETE candidates={len(unique)} enriched={len(enriched)} leads={len(leads)} rejected={rejected}')
     if leads:
         lines=[f'🔥 OK.RU RADAR | {len(leads)} BUYER ADAYI']
         for x in leads[:10]: lines += ['',f"Intent {x['intent']} | {x['provider']} | {x['title'][:140]}",x['url']]
