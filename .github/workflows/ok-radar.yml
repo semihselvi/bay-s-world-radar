@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - ok_radar.py
+      - russian_social_review.py
       - .github/workflows/ok-radar.yml
   schedule:
     - cron: "29 5,9,13,17,21 * * *"
@@ -26,6 +27,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: OK.ru buyer scan
         env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
