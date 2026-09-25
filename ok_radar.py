@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
 from bs4 import BeautifulSoup
 import main
+import russian_social_review as rsr
 
 UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/153 Safari/537.36'
 S=requests.Session(); S.headers.update({'User-Agent':UA,'Accept-Language':'ru-RU,ru;q=0.9,en;q=0.7'})
@@ -186,7 +187,9 @@ def run():
         topic_context=f"{row.get('title','')} {row.get('page_core','')} {row.get('text','')}"
         for comment in row.get('comments',[]) or []:
             cs=score_comment(comment,topic_context)
-            if not cs: continue
+            if not cs:
+                rsr.save("ok.ru",comment.get("text",""),comment.get("url") or row.get("url",""),comment.get("author",""),row.get("title",""))
+                continue
             key=(comment.get('url',''),comment.get('author',''),comment.get('text','')[:220])
             if key in comment_seen: continue
             comment_seen.add(key)
