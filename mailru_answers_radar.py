@@ -2,10 +2,11 @@ import hashlib
 import os
 import re
 from datetime import datetime, timezone
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, unquote, urlparse, parse_qs, urljoin
 from xml.etree import ElementTree as ET
 
 import requests
+from bs4 import BeautifulSoup
 
 import main
 import russian_social_review as rsr
@@ -64,6 +65,95 @@ COLLECTION="bay_s_mailru_answers_notified"
 def _now():
     return datetime.now(timezone.utc)
 
+def _unwrap_mailru(href):
+    href=str(href or "").strip()
+    if href.startswith("//"): href="https:"+href
+    if href.startswith("/"): href=urljoin("https://otvet.mail.ru",href)
+    try:
+        host=urlparse(href).netloc.lower()
+        if host in ("otvet.mail.ru","www.otvet.mail.ru"):
+            return href
+        q=parse_qs(urlparse(href).query)
+        for key in ("url","u","target","uddg"):
+            for val in q.get(key,[]):
+                val=unquote(val)
+                if urlparse(val).netloc.lower() in ("otvet.mail.ru","www.otvet.mail.ru"):
+                    return val
+    except Exception:
+        pass
+    return ""
+
+def _native_search(query):
+    out=[]
+    urls=[
+        "https://otvet.mail.ru/search?q="+quote_plus(query),
+        "https://otvet.mail.ru/search/"+quote_plus(query),
+    ]
+    for url in urls:
+        try:
+            r=S.get(url,timeout=12)
+            print("MAILRU_NATIVE_HTTP",r.status_code,len(r.text),repr(query),url.split("?")[0])
+            if r.status_code!=200:
+                continue
+            soup=BeautifulSoup(r.text,"html.parser")
+            for a in soup.find_all("a",href=True):
+                link=_unwrap_mailru(a.get("href"))
+                m=re.search(r"otvet\.mail\.ru/question/(\d+)",link)
+                if not m:
+                    continue
+                title=" ".join(a.stripped_strings).strip()
+                node=a
+                for _ in range(2):
+                    if getattr(node,"parent",None): node=node.parent
+                body=" ".join(getattr(node,"stripped_strings",[]) or [])[:1800]
+                out.append({
+                    "id":m.group(1),
+                    "question":title or body[:300],
+                    "qstcomment":body,
+                    "time":None,
+                    "time_ago":None,
+                    "count":None,
+                    "catname":"",
+                    "author":{},
+                    "_provider":"mailru_native",
+                })
+        except Exception as exc:
+            print("MAILRU_NATIVE_ERROR",repr(query),type(exc).__name__,str(exc)[:120])
+    dedup={}
+    for row in out:
+        if row.get("id"): dedup.setdefault(str(row["id"]),row)
+    print("MAILRU_NATIVE_QUERY",repr(query),"results",len(dedup))
+    return list(dedup.values())
+
+def _question_api(qid):
+    if not qid: return {}
+    try:
+        r=S.get("https://otvet.mail.ru/api/v2/question",params={
+            "ajax_id":0,"qid":qid,"sort":1,"n":20,"p":0
+        },timeout=12)
+        print("MAILRU_QUESTION_API",qid,r.status_code,len(r.text))
+        if r.status_code!=200:
+            return {}
+        data=r.json()
+        return data if isinstance(data,dict) else {}
+    except Exception as exc:
+        print("MAILRU_QUESTION_API_ERROR",qid,type(exc).__name__)
+        return {}
+
+def _json_text(obj):
+    parts=[]
+    def walk(x):
+        if isinstance(x,dict):
+            for k,v in x.items():
+                if str(k).lower() in ("question","qtext","qstcomment","qcomment","text","body","content","title") and isinstance(v,str):
+                    if v.strip(): parts.append(v.strip())
+                else:
+                    walk(v)
+        elif isinstance(x,list):
+            for y in x: walk(y)
+    walk(obj)
+    return " ".join(dict.fromkeys(parts))[:12000]
+
 def _bing_rss(query):
     url="https://www.bing.com/search?q="+quote_plus("site:otvet.mail.ru/question "+query)+"&format=rss"
     out=[]
@@ -108,7 +198,7 @@ def _search(query):
         "question_only":1,
     }
     try:
-        r=S.get(SEARCH_URL,params=params,timeout=25)
+        r=S.get(SEARCH_URL,params=params,timeout=5)
         print("MAILRU_HTTP",r.status_code,len(r.text),query)
         if r.status_code!=200:
             return []
@@ -180,16 +270,26 @@ def run():
     unique={}
     api_rows=0; fallback_rows=0
     for query in QUERIES:
-        rows=_search(query)
-        if rows:
-            api_rows+=len(rows)
-        else:
+        rows=_native_search(query)
+        if not rows:
             rows=_bing_rss(query)
             fallback_rows+=len(rows)
+        if not rows:
+            # Legacy endpoint is now last-resort only; it frequently times out
+            # from GitHub Actions and must never dominate the runtime.
+            rows=_search(query)
+            api_rows+=len(rows)
         for raw in rows:
             item=_row(raw)
             item["provider"]=raw.get("_provider") or "mailru_api"
             if not item["id"] or not item["url"]: continue
+            # Enrich known question IDs through Mail.ru's per-question JSON endpoint.
+            payload=_question_api(item["id"])
+            extra=_json_text(payload) if payload else ""
+            if extra:
+                item["text"]=" ".join(x for x in (item.get("text",""),extra) if x)[:12000]
+                if item["provider"]!="mailru_api":
+                    item["provider"]=item["provider"]+"+question_api"
             unique.setdefault(item["id"],item)
 
     db=main.firestore_client()
