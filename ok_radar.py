@@ -71,6 +71,54 @@ def rss(q):
         if u and '/topic/' in u: out.append({'title':get('title'),'text':get('description'),'url':u,'published':get('pubDate'),'provider':'bing_rss'})
     return out
 
+def extract_comments(soup, topic_url):
+    out=[]; seen=set()
+    selectors=('[data-l*="comment"]','[class*="comment"]','[data-module*="comment"]')
+    nodes=[]
+    for sel in selectors:
+        try: nodes += soup.select(sel)
+        except Exception: pass
+    for node in nodes:
+        try:
+            txt=' '.join(node.stripped_strings).strip()
+        except Exception:
+            continue
+        if len(txt)<18 or len(txt)>2600:
+            continue
+        low=txt.lower()
+        if low in seen: continue
+        seen.add(low)
+        author=''
+        try:
+            a=node.find('a',href=re.compile(r'/profile/'))
+            if a: author=' '.join(a.stripped_strings).strip()[:120]
+        except Exception: pass
+        cid=''
+        for attr in ('data-id','data-comment-id','id'):
+            val=str(node.get(attr) or '').strip()
+            if val:
+                m=re.search(r'(\d{4,})',val)
+                if m: cid=m.group(1); break
+        url=topic_url
+        if cid: url=topic_url.split('?')[0]+'#comment-'+cid
+        out.append({'author':author,'text':txt[:2600],'url':url,'comment_id':cid})
+    return out
+
+def score_comment(comment, topic_context):
+    text=str(comment.get('text','')).strip()
+    if len(text)<18: return None
+    if not NC.search(topic_context): return None
+    if PROMO.search(text) or SELL.search(text): return None
+    if not BUY_STRICT.search(text): return None
+    # Very short engagement such as "price?" is intentionally excluded.
+    if len(text)<32 and not re.search(r'(?:я\s+)?(?:хочу|планирую|собираюсь)\s+купить|куплю\s+(?:квартир|вилл|дом)|ищу.{0,70}(?:для\s+покупки|чтобы\s+купить)',text,re.I|re.S):
+        return None
+    s=84
+    if re.search(r'(?:мой|наш)\s+бюджет|£|€|\$|\b\d{4,}\b',text,re.I): s+=6
+    if re.search(r'искеле|лонг\s*бич|гирне|эсентепе|фамагуст|бафра|лапта|алсанджак',text,re.I): s+=4
+    if re.search(r'прие(?:ду|дем)|буду\s+на\s+кипре|в\s+октябре|в\s+ноябре|смотреть|просмотр',text,re.I): s+=4
+    return min(s,98)
+
 def enrich(row):
     try:
         r=requests.get(row['url'],headers={'User-Agent':UA,'Accept-Language':'ru-RU,ru;q=0.9'},timeout=15)
@@ -90,6 +138,7 @@ def enrich(row):
         core=' '.join(x for x in pieces if x)
         row=dict(row)
         row['page_core']=core[:9000]
+        row['comments']=extract_comments(soup,row.get('url',''))
         if soup.title and not row.get('title'): row['title']=soup.title.get_text(' ',strip=True)[:300]
     except Exception: pass
     return row
@@ -126,16 +175,39 @@ def run():
     with ThreadPoolExecutor(max_workers=12) as ex:
         futs=[ex.submit(enrich,r) for r in rows]
         for f in as_completed(futs): enriched.append(f.result())
-    leads=[]; rejected=0
+    topic_leads=[]; comment_leads=[]; rejected=0
+    comment_seen=set()
     for row in enriched:
         s=score(row)
-        if s: row['intent']=s; leads.append(row)
-        else: rejected+=1
+        if s:
+            row['intent']=s; row['lead_type']='topic'; topic_leads.append(row)
+        else:
+            rejected+=1
+        topic_context=f"{row.get('title','')} {row.get('page_core','')} {row.get('text','')}"
+        for comment in row.get('comments',[]) or []:
+            cs=score_comment(comment,topic_context)
+            if not cs: continue
+            key=(comment.get('url',''),comment.get('author',''),comment.get('text','')[:220])
+            if key in comment_seen: continue
+            comment_seen.add(key)
+            comment_leads.append({
+                'intent':cs,'lead_type':'comment','provider':'ok_comment',
+                'title':row.get('title',''),'url':comment.get('url') or row.get('url',''),
+                'author':comment.get('author',''),'text':comment.get('text',''),
+            })
+    leads=topic_leads+comment_leads
     leads.sort(key=lambda x:x['intent'],reverse=True)
-    print('OK_PROVIDER_COUNTS',provider_counts); print(f'OK_RADAR_COMPLETE candidates={len(unique)} enriched={len(enriched)} leads={len(leads)} rejected={rejected}')
+    print('OK_PROVIDER_COUNTS',provider_counts)
+    print(f"OK_COMMENT_RADAR comments={sum(len(r.get('comments',[]) or []) for r in enriched)} leads={len(comment_leads)}")
+    print(f'OK_RADAR_COMPLETE candidates={len(unique)} enriched={len(enriched)} topic_leads={len(topic_leads)} comment_leads={len(comment_leads)} leads={len(leads)} rejected={rejected}')
     if leads:
         lines=[f'🔥 OK.RU RADAR | {len(leads)} BUYER ADAYI']
-        for x in leads[:10]: lines += ['',f"Intent {x['intent']} | {x['provider']} | {x['title'][:140]}",x['url']]
+        for x in leads[:10]:
+            if x.get('lead_type')=='comment':
+                excerpt=' '.join(str(x.get('text','')).split())[:220]
+                lines += ['',f"COMMENT | Intent {x['intent']} | @{x.get('author') or 'kullanıcı'}",f"💬 {excerpt}",x['url']]
+            else:
+                lines += ['',f"TOPIC | Intent {x['intent']} | {x['provider']} | {x['title'][:140]}",x['url']]
         main.notify_telegram('\n'.join(lines))
     else: print('OK_RADAR no buyer candidate')
 if __name__=='__main__': run()
