@@ -10,8 +10,8 @@ S=requests.Session(); S.headers.update({'User-Agent':UA,'Accept-Language':'ru-RU
 QUERIES=['Северный Кипр хочу купить квартиру','Северный Кипр ищу квартиру купить','Северный Кипр куплю недвижимость','Северный Кипр бюджет квартира','Искеле хочу купить квартиру','Искеле куплю 1+1','Искеле куплю 2+1','Лонг Бич Кипр хочу купить квартиру','Гирне хочу купить квартиру','Гирне хочу купить виллу','Северный Кипр инвестиции ищу квартиру','Северный Кипр недвижимость нужен вариант']
 SEEDS=['https://vk.com/northcyprusinvest']
 NC=re.compile(r'(северн\w*\s+кипр\w*|искеле|лонг\s*бич|гирне|эсентепе|фамагуст|бафра|лапта|алсанджак)',re.I)
-BUY=re.compile(r'(хочу\s+купить|куплю|ищу.{0,60}(?:купить|квартир|вилл|недвиж)|бюджет|нужн\w*.{0,40}(?:квартир|вилл|недвиж)|подскажите.{0,50}(?:квартир|вилл|недвиж)|рассматрива\w*.{0,40}(?:покуп|квартир|вилл))',re.I|re.S)
-SELL=re.compile(r'(прода[её]тся|продаю|на продажу|агентств|риелтор|риэлтор|застройщик)',re.I)
+BUY=re.compile(r'(?:^|[\s.!?,;:])(?:я\s+)?(?:хочу|хотел(?:а)?\s+бы|планирую|собираюсь)\s+(?:себе\s+)?купить|(?:^|[\s.!?,;:])куплю\s+(?:квартир|вилл|дом|недвиж)|(?:^|[\s.!?,;:])ищу.{0,90}(?:для\s+покупки|чтобы\s+купить|купить\s+(?:квартир|вилл|дом|недвиж))|(?:мой|наш)\s+бюджет.{0,100}(?:квартир|вилл|дом|недвиж|покуп)|подскажите.{0,100}(?:где|что|какую|какой).{0,80}(?:купить|покуп)|нужн[аоы]?.{0,80}(?:квартир|вилл|дом).{0,80}(?:купить|покуп)',re.I|re.S)
+SELL=re.compile(r'(прода[её]тся|продаю|на\s+продажу|в\s+продаже|агентств|риелтор|риэлтор|застройщик|предлагаем|цена\s+от|стоимость\s+от|рассрочк|инвестиционн|доходност|почему\s+стоит\s+купить|пишите\s+в\s+лич|подбер[её]м)',re.I)
 
 def valid(u):
     try:
@@ -74,9 +74,56 @@ def vk_api(q):
         out=[]
         for p in data.get('response',{}).get('items',[]):
             owner=p.get('owner_id'); pid=p.get('id'); text=p.get('text','')
-            if owner is not None and pid is not None: out.append({'title':text[:220],'text':text,'url':f'https://vk.com/wall{owner}_{pid}','published':str(p.get('date','')),'provider':'vk_api'})
+            if owner is not None and pid is not None: out.append({'title':text[:220],'text':text,'url':f'https://vk.com/wall{owner}_{pid}','published':str(p.get('date','')),'provider':'vk_api','owner_id':owner,'post_id':pid})
         return out
     except Exception as e: print('VK_API_EXCEPTION',type(e).__name__); return []
+
+def vk_comments(row):
+    token=os.getenv('VK_ACCESS_TOKEN','').strip()
+    if not token or row.get('provider')!='vk_api' or row.get('owner_id') is None or row.get('post_id') is None:
+        return []
+    try:
+        r=S.get('https://api.vk.com/method/wall.getComments',params={
+            'owner_id':row['owner_id'],'post_id':row['post_id'],'count':100,'extended':1,
+            'thread_items_count':5,'access_token':token,'v':'5.199'
+        },timeout=25)
+        data=r.json()
+        if 'error' in data:
+            print('VK_COMMENT_API_ERROR',data['error'].get('error_code'),data['error'].get('error_msg'))
+            return []
+        out=[]
+        for x in data.get('response',{}).get('items',[]) or []:
+            txt=str(x.get('text') or '').strip()
+            cid=x.get('id')
+            if not txt or cid is None: continue
+            out.append({
+                'title':'VK comment','text':txt,
+                'url':f"https://vk.com/wall{row['owner_id']}_{row['post_id']}?reply={cid}",
+                'published':str(x.get('date','')),'provider':'vk_comment',
+                'author_id':x.get('from_id')
+            })
+            for child in ((x.get('thread') or {}).get('items') or []):
+                ctxt=str(child.get('text') or '').strip(); ccid=child.get('id')
+                if ctxt and ccid is not None:
+                    out.append({
+                        'title':'VK reply','text':ctxt,
+                        'url':f"https://vk.com/wall{row['owner_id']}_{row['post_id']}?reply={ccid}",
+                        'published':str(child.get('date','')),'provider':'vk_comment',
+                        'author_id':child.get('from_id')
+                    })
+        return out
+    except Exception as e:
+        print('VK_COMMENT_API_EXCEPTION',type(e).__name__)
+        return []
+
+def score_comment(row,context):
+    text=str(row.get('text',''))
+    if not NC.search(context) or not BUY.search(text) or SELL.search(text): return None
+    s=84
+    if re.search(r'(?:мой|наш)\s+бюджет|£|€|\$|\b\d{4,}\b',text,re.I): s+=6
+    if re.search(r'искеле|лонг\s*бич|гирне|эсентепе|фамагуст|бафра|лапта|алсанджак',text,re.I): s+=4
+    if re.search(r'прие(?:ду|дем)|просмотр|посмотреть|в\s+октябре|в\s+ноябре',text,re.I): s+=4
+    return min(s,98)
 
 def score(row):
     text=f"{row.get('title','')} {row.get('text','')}"
@@ -92,6 +139,7 @@ def run():
     seen=set(); leads=[]; provider_counts={}; allrows=communities()
     for q in QUERIES:
         rows=vk_api(q)+native(q)+rss(q); print(f'VK_QUERY {q!r} raw={len(rows)}'); allrows += rows
+    api_posts=[]
     for row in allrows:
         if not valid(row['url']): continue
         key=row['url'].split('?')[0].rstrip('/')
@@ -99,8 +147,20 @@ def run():
         seen.add(key); provider_counts[row['provider']]=provider_counts.get(row['provider'],0)+1
         s=score(row)
         if s: row.update(intent=s); leads.append(row)
+        if row.get('provider')=='vk_api' and NC.search(f"{row.get('title','')} {row.get('text','')}"):
+            api_posts.append(row)
+    comment_rows=0
+    for post in api_posts[:50]:
+        context=f"{post.get('title','')} {post.get('text','')}"
+        for com in vk_comments(post):
+            comment_rows+=1
+            key=com['url'].split('&')[0]
+            if key in seen: continue
+            seen.add(key); provider_counts['vk_comment']=provider_counts.get('vk_comment',0)+1
+            s=score_comment(com,context)
+            if s: com.update(intent=s); leads.append(com)
     leads.sort(key=lambda x:x['intent'],reverse=True)
-    print('VK_PROVIDER_COUNTS',provider_counts); print(f'VK_RADAR_COMPLETE candidates={len(seen)} leads={len(leads)}')
+    print('VK_PROVIDER_COUNTS',provider_counts); print(f'VK_RADAR_COMPLETE candidates={len(seen)} api_posts={len(api_posts)} comments={comment_rows} leads={len(leads)}')
     if leads:
         lines=[f'🔥 VK RADAR | {len(leads)} BUYER ADAYI']
         for x in leads[:10]: lines += ['',f"Intent {x['intent']} | {x['provider']} | {x['title'][:140]}",x['url']]
