@@ -51,6 +51,13 @@ RESIDENCY_CONTEXT_RE = re.compile(
     re.I,
 )
 
+PROPERTY_TRANSACTION_RE = re.compile(
+    r"(?:property|apartment|flat|house|villa|studio|price|budget|payment\s+plan|installment|deposit|mortgage|title\s+deed|resale|"
+    r"daire|ev|villa|st[üu]dyo|fiyat|b[üu]t[çc]e|taksit|pe[şs]inat|ko[çc]an|sat[ıi]n\s+al|"
+    r"квартир|апартамент|дом|вилл|студи|недвижимост|цена|бюджет|рассроч|взнос|ипотек|титул|купить|куплю)",
+    re.I,
+)
+
 EXISTING_PURCHASE_RE = re.compile(
     r"(?:"
     r"\b(?:купил(?:а|и)?|приобр[её]л(?:а|и)?|у\s+меня\s+есть|у\s+нас\s+есть)\b.{0,120}"
@@ -97,7 +104,9 @@ def _safe_actionable(text: str) -> bool:
     if TURKISH_PRICE_REQUEST_RE.search(text) or TURKISH_AVAILABILITY_RE.search(text):
         return True
     if any(re.search(pattern, text, re.I) for pattern in yce.ENGAGEMENT):
-        return True
+        # Generic curiosity such as "I'm also interested in Güzelyurt / the
+        # university" is relocation/location interest, not a property buyer.
+        return bool(PROPERTY_TRANSACTION_RE.search(text))
     return False
 
 
