@@ -1,4 +1,5 @@
 import hashlib
+import html
 import re
 
 import main
@@ -9,25 +10,35 @@ PROPERTY=re.compile(r"(квартир|апартамент|дом|вилл|ст�
 REQUEST=re.compile(r"(какая\s+цена|сколько\s+стоит|цена\??|можно\s+подробнее|подробнее|какие\s+варианты|что\s+есть|есть\s+ли|актуально|условия|рассроч|первоначальн\w*\s+взнос|ипотек|титул|можно\s+посмотреть|просмотр|показ)",re.I)
 MONEY=re.compile(r"(бюджет|£|€|\$|₽|\b\d{4,}\b)",re.I)
 TIMING=re.compile(r"(прие(?:ду|дем)|буду\s+на\s+кипре|будем\s+на\s+кипре|в\s+октябре|в\s+ноябре|в\s+декабре|на\s+следующей\s+неделе)",re.I)
+NC_CONTEXT=re.compile(r"(северн\w*\s+кипр\w*|искеле|лонг\s*бич|гирне|эсентепе|фамагуст|бафра|лапта|алсанджак|north(?:ern)?\s+cyprus)",re.I)
 SELLER=re.compile(r"(прода[её]тся|продаю|агентств|риелтор|риэлтор|застройщик|предлагаем|пишите\s+в\s+лич|обращайтесь|наш\s+проект|наша\s+компания|подбер[её]м)",re.I)
 
 
-def candidate(text):
-    text=" ".join(str(text or "").split())
-    if len(text)<8 or SELLER.search(text):
+def candidate(text,context=""):
+    text=html.unescape(re.sub(r"<[^>]+>"," ",str(text or "")))
+    text=" ".join(text.split())
+    context=html.unescape(re.sub(r"<[^>]+>"," ",str(context or "")))
+    if len(text)<8 or SELLER.search(text) or not NC_CONTEXT.search(context):
+        return None
+    has_property=bool(PROPERTY.search(text))
+    has_request=bool(REQUEST.search(text))
+    has_timing=bool(TIMING.search(text))
+    # Money alone is never a near-miss. It must be attached to a property,
+    # transactional question or concrete arrival/viewing timing.
+    if not (has_property or has_request or has_timing):
         return None
     score=0; reasons=[]
-    if PROPERTY.search(text): score+=2; reasons.append("property")
-    if REQUEST.search(text): score+=2; reasons.append("request")
+    if has_property: score+=2; reasons.append("property")
+    if has_request: score+=2; reasons.append("request")
     if MONEY.search(text): score+=4; reasons.append("money")
-    if TIMING.search(text): score+=3; reasons.append("timing")
+    if has_timing: score+=3; reasons.append("timing")
     if score<4:
         return None
     return score,reasons
 
 
 def save(platform,text,url="",author="",context="",extra=None):
-    result=candidate(text)
+    result=candidate(text,context)
     if not result:
         return False
     score,reasons=result
@@ -38,7 +49,7 @@ def save(platform,text,url="",author="",context="",extra=None):
     key=hashlib.sha1(basis.encode("utf-8")).hexdigest()
     row={
         "platform":platform,
-        "text":" ".join(str(text).split())[:3000],
+        "text":" ".join(html.unescape(re.sub(r"<[^>]+>"," ",str(text))).split())[:3000],
         "url":url,
         "author":author,
         "context":str(context)[:1000],
