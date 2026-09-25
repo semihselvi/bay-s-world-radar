@@ -1,0 +1,36 @@
+name: VC.RU COMMENT RADAR
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - vcru_comment_radar.py
+      - russian_social_review.py
+      - .github/workflows/vcru-comment-radar.yml
+  schedule:
+    - cron: "47 5,9,13,17,21 * * *"
+
+concurrency:
+  group: vcru-comment-radar
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: VC.ru public comment buyer scan
+        env:
+          VCRU_COMMENT_LOOKBACK_DAYS: "30"
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -m py_compile vcru_comment_radar.py
+          python vcru_comment_radar.py
