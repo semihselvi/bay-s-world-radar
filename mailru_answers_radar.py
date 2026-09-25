@@ -2,6 +2,8 @@ import hashlib
 import os
 import re
 from datetime import datetime, timezone
+from urllib.parse import quote_plus
+from xml.etree import ElementTree as ET
 
 import requests
 
@@ -61,6 +63,39 @@ COLLECTION="bay_s_mailru_answers_notified"
 
 def _now():
     return datetime.now(timezone.utc)
+
+def _bing_rss(query):
+    url="https://www.bing.com/search?q="+quote_plus("site:otvet.mail.ru/question "+query)+"&format=rss"
+    out=[]
+    try:
+        r=S.get(url,timeout=20)
+        print("MAILRU_BING_HTTP",r.status_code,len(r.text),repr(query))
+        if r.status_code!=200:
+            return out
+        root=ET.fromstring(r.content)
+        for it in root.findall(".//item"):
+            def get(tag):
+                el=it.find(tag)
+                return "".join(el.itertext()).strip() if el is not None else ""
+            link=get("link")
+            m=re.search(r"otvet\.mail\.ru/question/(\d+)",link)
+            if not m:
+                continue
+            out.append({
+                "id":m.group(1),
+                "question":get("title"),
+                "qstcomment":get("description"),
+                "time":None,
+                "time_ago":None,
+                "count":None,
+                "catname":"",
+                "author":{},
+                "_provider":"bing_rss",
+            })
+        print("MAILRU_BING_QUERY",repr(query),"results",len(out))
+    except Exception as exc:
+        print("MAILRU_BING_ERROR",repr(query),type(exc).__name__,str(exc)[:160])
+    return out
 
 def _search(query):
     days=float(os.getenv("MAILRU_LOOKBACK_DAYS","7"))
@@ -143,9 +178,17 @@ def _mark(db,key,item):
 
 def run():
     unique={}
+    api_rows=0; fallback_rows=0
     for query in QUERIES:
-        for raw in _search(query):
+        rows=_search(query)
+        if rows:
+            api_rows+=len(rows)
+        else:
+            rows=_bing_rss(query)
+            fallback_rows+=len(rows)
+        for raw in rows:
             item=_row(raw)
+            item["provider"]=raw.get("_provider") or "mailru_api"
             if not item["id"] or not item["url"]: continue
             unique.setdefault(item["id"],item)
 
@@ -165,14 +208,14 @@ def run():
                 review_saved+=1
 
     leads.sort(key=lambda x:x["intent"],reverse=True)
-    print(f"MAILRU_RADAR_COMPLETE candidates={len(unique)} leads={len(leads)} review_saved={review_saved}")
+    print(f"MAILRU_RADAR_COMPLETE candidates={len(unique)} api_rows={api_rows} fallback_rows={fallback_rows} leads={len(leads)} review_saved={review_saved}")
     if leads:
         lines=[f"✉️ MAIL.RU ANSWERS RADAR | {len(leads)} BUYER ADAYI"]
         for x in leads[:10]:
             body=" ".join(f"{x.get('title','')} {x.get('text','')}".split())[:260]
             lines += [
                 "",
-                f"Intent {x['intent']} | @{x.get('author') or 'kullanıcı'} | {x.get('published','')[:10]}",
+                f"Intent {x['intent']} | {x.get('provider','mailru')} | @{x.get('author') or 'kullanıcı'} | {x.get('published','')[:10]}",
                 f"❓ {body}",
                 x["url"],
             ]
