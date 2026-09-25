@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import main
+import russian_social_review as rsr
 
 UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/153 Safari/537.36"
 S=requests.Session()
@@ -238,7 +239,9 @@ def run():
             dt=_parse_dt(com.get("published"))
             if not dt or dt<cutoff: continue
             cs=_score(com.get("text",""),context)
-            if not cs: continue
+            if not cs:
+                rsr.save("pikabu",com.get("text",""),row.get("url",""),com.get("author",""),row.get("title",""))
+                continue
             url=row.get("url","")
             if com.get("comment_id"): url=url+"#comment-"+com["comment_id"]
             basis=f"{row.get('url','')}|{com.get('comment_id','')}|{com.get('author','')}|{com.get('text','')[:240]}"
