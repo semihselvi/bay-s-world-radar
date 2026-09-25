@@ -13,6 +13,15 @@ UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/153 Safari/537.36"
 S=requests.Session()
 S.headers.update({"User-Agent":UA,"Accept-Language":"ru-RU,ru;q=0.9,en;q=0.7"})
 
+HASHTAGS=[
+    "https://tenchat.ru/hashtag/severniykipr",
+    "https://tenchat.ru/hashtag/nedvizhimostsevernogokipra",
+    "https://tenchat.ru/hashtag/kupitnedvizhimostnasevernomkipre",
+    "https://tenchat.ru/hashtag/northcyprus",
+    "https://tenchat.ru/hashtag/investitsiivnedvizhimostnasevernomkipre",
+    "https://tenchat.ru/hashtag/nedvizhimostnakipre",
+]
+
 QUERIES=[
     "Северный Кипр недвижимость",
     "Северный Кипр купить квартиру",
@@ -44,6 +53,27 @@ def _valid(url):
         return h=="tenchat.ru" or h.endswith(".tenchat.ru")
     except Exception:
         return False
+
+def hashtag_sources():
+    out=[]
+    for url in HASHTAGS:
+        try:
+            r=S.get(url,timeout=22)
+            print("TENCHAT_HASHTAG",r.status_code,len(r.text),url)
+            if r.status_code!=200: continue
+            soup=BeautifulSoup(r.text,"html.parser")
+            for a in soup.find_all("a",href=True):
+                href=urljoin("https://tenchat.ru",a.get("href"))
+                if not _valid(href) or "/media/" not in href: continue
+                title=" ".join(a.stripped_strings).strip()[:300]
+                node=a
+                for _ in range(2):
+                    if getattr(node,"parent",None): node=node.parent
+                body=" ".join(getattr(node,"stripped_strings",[]) or [])[:2500]
+                out.append({"url":href.split("?")[0],"title":title,"text":body,"provider":"tenchat_hashtag"})
+        except Exception as exc:
+            print("TENCHAT_HASHTAG_ERROR",type(exc).__name__,url)
+    return out
 
 def rss(query):
     url="https://www.bing.com/search?q="+quote_plus("site:tenchat.ru/media "+query)+"&format=rss"
@@ -142,6 +172,9 @@ def _key(row,com):
 
 def run():
     unique={}
+    for row in hashtag_sources():
+        key=row.get("url","").rstrip("/")
+        if key and key not in unique: unique[key]=row
     for q in QUERIES:
         rows=rss(q)
         print(f"TENCHAT_QUERY {q!r} raw={len(rows)}")
