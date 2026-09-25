@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - tenchat_radar.py
+      - russian_social_review.py
       - .github/workflows/tenchat-radar.yml
   schedule:
     - cron: "37 4,8,12,16,20 * * *"
