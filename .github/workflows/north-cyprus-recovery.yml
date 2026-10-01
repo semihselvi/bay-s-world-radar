@@ -1,6 +1,10 @@
 name: BAY-S North Cyprus Recovery
 
 on:
+  push:
+    paths:
+      - "north_cyprus_recovery.py"
+      - ".github/workflows/north-cyprus-recovery.yml"
   workflow_dispatch:
     inputs:
       days:
