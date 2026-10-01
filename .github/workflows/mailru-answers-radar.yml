@@ -7,9 +7,6 @@ on:
       - mailru_answers_radar.py
       - russian_social_review.py
       - .github/workflows/mailru-answers-radar.yml
-  schedule:
-    - cron: "7 5,9,13,17,21 * * *"
-
 concurrency:
   group: mailru-answers-radar
   cancel-in-progress: false
