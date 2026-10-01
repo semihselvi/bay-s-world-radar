@@ -11,11 +11,6 @@ on:
         description: "7 or 30"
         required: false
         default: "7"
-  schedule:
-    # Turkey time UTC+3. Monday-Saturday: 7-day recovery. Sunday: 30-day recovery.
-    - cron: "32 5 * * 1-6"   # 08:32 Turkey
-    - cron: "32 13 * * 0"    # 16:32 Turkey Sunday
-
 concurrency:
   group: bay-s-nc-recovery-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
