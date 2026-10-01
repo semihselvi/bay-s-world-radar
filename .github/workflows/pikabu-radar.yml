@@ -7,9 +7,6 @@ on:
       - pikabu_radar.py
       - russian_social_review.py
       - .github/workflows/pikabu-radar.yml
-  schedule:
-    - cron: "17 4,8,12,16,20 * * *"
-
 concurrency:
   group: pikabu-radar
   cancel-in-progress: false
