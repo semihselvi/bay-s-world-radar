@@ -24,11 +24,6 @@ on:
       - "telegram_candidate_validator.py"
       - "tgden_buyer_posts.py"
       - "reddit_archive_buyer.py"
-  schedule:
-    # Turkey time UTC+3. Broad free discovery, staggered from other radar lanes.
-    - cron: "52 6 * * *"                  # 09:52: 24h catch-up + forums + public discovery + open web + source network crawl
-    - cron: "52 9,12,15,18,20 * * *"     # 12:52/15:52/18:52/21:52/23:52 fresh pulses
-
 concurrency:
   group: bay-s-nc-lead-catcher-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
