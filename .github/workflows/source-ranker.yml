@@ -1,8 +1,6 @@
 name: BAY-S Radar Source Ranker
 
 on:
-  schedule:
-    - cron: "17 5 * * 1"  # Monday 08:17 Turkey time
   workflow_dispatch:
 
 jobs:
