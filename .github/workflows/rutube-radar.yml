@@ -2,11 +2,6 @@ name: BAY-S RuTube Radar
 
 on:
   workflow_dispatch:
-  schedule:
-    # Turkey time UTC+3. No Exa; best-effort public RuTube API.
-    - cron: "42 5 * * *"        # 08:42 discover + 24h comment catch-up
-    - cron: "42 11,17 * * *"    # 14:42 / 20:42 comment pulses
-
 concurrency:
   group: bay-s-rutube-radar-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
