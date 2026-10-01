@@ -11,14 +11,6 @@ on:
       - north_cyprus_open_web_plus.py
       - .github/workflows/world-radar.yml
   workflow_dispatch:
-  schedule:
-    # Turkey time UTC+3
-    - cron: "7 6 * * *"        # 09:07 full morning scan
-    - cron: "37 6 * * *"       # 09:37 North Cyprus maximum-recall + 1 Exa
-    - cron: "37 4,8,10,12,14,16,18,20 * * *" # 07:37/11:37/13:37/15:37/17:37/19:37/21:37/23:37 NC recall pulses, 0 Exa
-    - cron: "7 12 * * *"       # 15:07 Telegram member refresh, no Exa
-    - cron: "7 18 * * *"       # 21:07 Telegram + Golden/South refresh, 1 Exa
-
 concurrency:
   group: bay-s-world-radar-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
