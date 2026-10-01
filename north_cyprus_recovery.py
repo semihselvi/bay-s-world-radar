@@ -90,7 +90,7 @@ def run():
         seen.add(key)
         lead, reason = base._classify(item, cutoff)
         stats[reason] = stats.get(reason, 0) + 1
-        if not lead or lead.get("intent_class") not in {"BUYER", "TENANT"}:
+        if not lead or lead.get("intent_class") != "BUYER":
             continue
         published = main.parse_dt(lead.get("published", ""))
         age_days = round((started - published).total_seconds() / 86400, 1) if published else None
@@ -130,8 +130,7 @@ def run():
 
     if new:
         buyer_count = sum(1 for lead in new if lead.get("intent_class") == "BUYER")
-        tenant_count = sum(1 for lead in new if lead.get("intent_class") == "TENANT")
-        lines = [f"🕰 BAY-S NC RECOVERY {days}G | {buyer_count} BUYER + {tenant_count} TENANT"]
+        lines = [f"🕰 BAY-S NC RECOVERY {days}G | {buyer_count} BUYER"]
         for lead in new[:12]:
             author = lead.get("author") or "kullanıcı"
             place = lead.get("telegram_chat") or lead.get("title") or lead.get("source") or ""
@@ -142,7 +141,7 @@ def run():
             lines.append(f"\n{lead.get('classification','WARM')} | {author} | {intent_label}\nIntent {confidence}% | {place[:65]} | {age}g önce\n{excerpt}\n{lead.get('url','')}")
         main.notify_telegram("\n".join(lines))
     else:
-        main.notify_telegram(f"🕰 BAY-S NC RECOVERY {days}G tamamlandı.\nYeni gerçek BUYER/TENANT yok.\nİncelenen: {len(seen)} | Stitch kanıtı: {len(stitched)}")
+        print("NC_RECOVERY_NO_NEW_BUYERS", {"days": days, "scanned": len(seen), "stitched": len(stitched)})
 
 
 if __name__ == "__main__":
