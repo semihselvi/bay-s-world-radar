@@ -15,12 +15,6 @@ on:
       - "youtube_radar_guard.py"
       - "test_youtube_radar_guard.py"
       - ".github/workflows/youtube-radar.yml"
-  schedule:
-    # Turkey time UTC+3
-    - cron: "25 5 * * *"
-    - cron: "25 7,9,11,13,15,17,19 * * *"
-    - cron: "45 4 * * 0"
-
 concurrency:
   group: bay-s-youtube-radar-${{ github.event.schedule || github.event_name }}
   cancel-in-progress: false
