@@ -2,10 +2,6 @@ name: BAY-S North Cyprus Web Recovery
 
 on:
   workflow_dispatch:
-  schedule:
-    # Sunday 08:55 Turkey time (UTC+3). Free indexed-web recovery; no Exa.
-    - cron: "55 5 * * 0"
-
 concurrency:
   group: bay-s-nc-web-recovery
   cancel-in-progress: false
