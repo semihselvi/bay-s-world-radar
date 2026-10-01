@@ -2,10 +2,6 @@ name: BAY-S North Cyprus Source Scout
 
 on:
   workflow_dispatch:
-  schedule:
-    # Sunday 08:20 Turkey time (UTC+3). One Exa discovery call per week.
-    - cron: "20 5 * * 0"
-
 concurrency:
   group: bay-s-north-cyprus-source-scout
   cancel-in-progress: false
