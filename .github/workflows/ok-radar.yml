@@ -7,9 +7,6 @@ on:
       - ok_radar.py
       - russian_social_review.py
       - .github/workflows/ok-radar.yml
-  schedule:
-    - cron: "29 5,9,13,17,21 * * *"
-
 concurrency:
   group: ok-ru-radar
   cancel-in-progress: false
