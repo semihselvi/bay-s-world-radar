@@ -1,6 +1,6 @@
-name: BAY-S North Cyprus Web Recovery
+name: ARCHIVE - BAY-S North Cyprus Web Recovery
 
-on:
+"on":
   workflow_dispatch:
 concurrency:
   group: bay-s-nc-web-recovery
