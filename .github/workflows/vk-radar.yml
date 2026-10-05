@@ -1,12 +1,7 @@
-name: VK RADAR
+name: ARCHIVE - VK RADAR
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - vk_radar.py
-      - .github/workflows/vk-radar.yml
-
 concurrency:
   group: vk-radar
   cancel-in-progress: false
