@@ -1,12 +1,7 @@
-name: Grand Sapphire Target Apartment Scan
+name: ARCHIVE - Grand Sapphire Target Apartment Scan
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - "grand_sapphire_target_scan.py"
-      - ".github/workflows/grand-sapphire-target-scan.yml"
-
 jobs:
   scan:
     runs-on: ubuntu-latest
