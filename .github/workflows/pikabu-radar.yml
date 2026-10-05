@@ -1,12 +1,7 @@
-name: PIKABU RADAR
+name: ARCHIVE - PIKABU RADAR
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - pikabu_radar.py
-      - russian_social_review.py
-      - .github/workflows/pikabu-radar.yml
 concurrency:
   group: pikabu-radar
   cancel-in-progress: false
