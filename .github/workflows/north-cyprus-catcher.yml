@@ -1,29 +1,7 @@
-name: BAY-S North Cyprus Lead Catcher
+name: ARCHIVE - BAY-S North Cyprus Lead Catcher
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/north-cyprus-catcher.yml"
-      - "north_cyprus_catcher_quality.py"
-      - "north_cyprus_catcher_buyers_only.py"
-      - "north_cyprus_catcher_expanded.py"
-      - "north_cyprus_intent_classifier.py"
-      - "north_cyprus_source_performance.py"
-      - "north_cyprus_query_performance.py"
-      - "north_cyprus_open_web.py"
-      - "north_cyprus_open_web_plus.py"
-      - "telegram_global_search.py"
-      - "telegram_known_public_groups.py"
-      - "telegram_member_deep_search.py"
-      - "telegram_channel_comments.py"
-      - "telegram_network_crawler.py"
-      - "telegram_session_pool.py"
-      - "telegram_tgden_discovery.py"
-      - "telegram_recommendation_discovery.py"
-      - "telegram_candidate_validator.py"
-      - "tgden_buyer_posts.py"
-      - "reddit_archive_buyer.py"
 concurrency:
   group: bay-s-nc-lead-catcher-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
