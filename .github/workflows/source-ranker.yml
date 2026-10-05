@@ -1,8 +1,7 @@
-name: BAY-S Radar Source Ranker
+name: ARCHIVE - BAY-S Radar Source Ranker
 
-on:
+"on":
   workflow_dispatch:
-
 jobs:
   rank-sources:
     runs-on: ubuntu-latest
