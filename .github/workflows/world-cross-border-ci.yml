@@ -1,14 +1,7 @@
-name: CI - WORLD West Europe Cross-Border Guard
+name: ARCHIVE - CI - WORLD West Europe Cross-Border Guard
 
-on:
-  push:
-    paths:
-      - "world_cross_border_guard.py"
-      - "shard_runner.py"
-      - "test_world_cross_border_guard.py"
-      - ".github/workflows/world-cross-border-ci.yml"
+"on":
   workflow_dispatch:
-
 jobs:
   test:
     runs-on: ubuntu-latest
