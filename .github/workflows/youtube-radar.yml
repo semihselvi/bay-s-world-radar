@@ -1,20 +1,7 @@
-name: BAY-S YouTube Radar
+name: ARCHIVE - BAY-S YouTube Radar
 
-on:
+"on":
   workflow_dispatch:
-    inputs:
-      mode:
-        description: "scan | discover_scan | deep_scan"
-        required: false
-        default: "scan"
-  push:
-    paths:
-      - "youtube_radar.py"
-      - "youtube_comment_expansion.py"
-      - "youtube_radar_expanded.py"
-      - "youtube_radar_guard.py"
-      - "test_youtube_radar_guard.py"
-      - ".github/workflows/youtube-radar.yml"
 concurrency:
   group: bay-s-youtube-radar-${{ github.event.schedule || github.event_name }}
   cancel-in-progress: false
