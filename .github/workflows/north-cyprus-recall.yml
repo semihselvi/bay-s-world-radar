@@ -1,6 +1,6 @@
-name: BAY-S North Cyprus Recall
+name: ARCHIVE - BAY-S North Cyprus Recall
 
-on:
+"on":
   workflow_dispatch:
 concurrency:
   group: bay-s-north-cyprus-recall-${{ github.event.schedule || 'manual' }}
