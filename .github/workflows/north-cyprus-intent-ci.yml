@@ -1,26 +1,7 @@
-name: BAY-S NC Intent CI
+name: ARCHIVE - BAY-S NC Intent CI
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "north_cyprus_intent_classifier.py"
-      - "north_cyprus_publisher_classifier.py"
-      - "north_cyprus_semantic_dedupe.py"
-      - "north_cyprus_intent_routing.py"
-      - "north_cyprus_notification_dedupe.py"
-      - "north_cyprus_catcher_expanded.py"
-      - "north_cyprus_recovery.py"
-      - "north_cyprus_intent_selftest.py"
-      - "runtime_quality_guard.py"
-      - "runtime_quality_guard_batch.py"
-      - "north_cyprus_catcher_quality.py"
-      - "north_cyprus_recovery_quality.py"
-      - "test_runtime_quality_guard.py"
-      - "test_runtime_quality_guard_batch.py"
-      - ".github/workflows/north-cyprus-intent-ci.yml"
-
 permissions:
   contents: read
 
