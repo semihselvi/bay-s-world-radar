@@ -1,12 +1,7 @@
-name: MAIL.RU ANSWERS RADAR
+name: ARCHIVE - MAIL.RU ANSWERS RADAR
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - mailru_answers_radar.py
-      - russian_social_review.py
-      - .github/workflows/mailru-answers-radar.yml
 concurrency:
   group: mailru-answers-radar
   cancel-in-progress: false
