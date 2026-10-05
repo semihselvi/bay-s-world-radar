@@ -1,12 +1,7 @@
-name: OK.RU RADAR
+name: ARCHIVE - OK.RU RADAR
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - ok_radar.py
-      - russian_social_review.py
-      - .github/workflows/ok-radar.yml
 concurrency:
   group: ok-ru-radar
   cancel-in-progress: false
