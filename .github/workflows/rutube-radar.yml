@@ -1,6 +1,6 @@
-name: BAY-S RuTube Radar
+name: ARCHIVE - BAY-S RuTube Radar
 
-on:
+"on":
   workflow_dispatch:
 concurrency:
   group: bay-s-rutube-radar-${{ github.event.schedule || 'manual' }}
