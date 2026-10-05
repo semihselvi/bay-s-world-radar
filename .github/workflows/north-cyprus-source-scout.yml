@@ -1,6 +1,6 @@
-name: BAY-S North Cyprus Source Scout
+name: ARCHIVE - BAY-S North Cyprus Source Scout
 
-on:
+"on":
   workflow_dispatch:
 concurrency:
   group: bay-s-north-cyprus-source-scout
