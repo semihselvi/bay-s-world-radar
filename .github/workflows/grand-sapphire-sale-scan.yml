@@ -1,12 +1,7 @@
-name: Grand Sapphire Telegram Sale Scan
+name: ARCHIVE - Grand Sapphire Telegram Sale Scan
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - "grand_sapphire_sale_scan.py"
-      - ".github/workflows/grand-sapphire-sale-scan.yml"
-
 jobs:
   scan:
     runs-on: ubuntu-latest
