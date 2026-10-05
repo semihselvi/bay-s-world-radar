@@ -1,12 +1,7 @@
-name: TENCHAT COMMENT RADAR
+name: ARCHIVE - TENCHAT COMMENT RADAR
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - tenchat_radar.py
-      - russian_social_review.py
-      - .github/workflows/tenchat-radar.yml
 concurrency:
   group: tenchat-comment-radar
   cancel-in-progress: false
