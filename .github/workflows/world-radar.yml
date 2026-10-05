@@ -1,15 +1,6 @@
-name: BAY-S World Radar
+name: ARCHIVE - BAY-S World Radar
 
-on:
-  push:
-    branches: [main]
-    paths:
-      - runtime_quality_guard.py
-      - runtime_quality_guard_batch.py
-      - test_runtime_quality_guard.py
-      - test_runtime_quality_guard_batch.py
-      - north_cyprus_open_web_plus.py
-      - .github/workflows/world-radar.yml
+"on":
   workflow_dispatch:
 concurrency:
   group: bay-s-world-radar-${{ github.event.schedule || 'manual' }}
