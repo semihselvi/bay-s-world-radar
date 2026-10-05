@@ -1,16 +1,7 @@
-name: BAY-S North Cyprus Recovery
+name: ARCHIVE - BAY-S North Cyprus Recovery
 
-on:
-  push:
-    paths:
-      - "north_cyprus_recovery.py"
-      - ".github/workflows/north-cyprus-recovery.yml"
+"on":
   workflow_dispatch:
-    inputs:
-      days:
-        description: "7 or 30"
-        required: false
-        default: "7"
 concurrency:
   group: bay-s-nc-recovery-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
