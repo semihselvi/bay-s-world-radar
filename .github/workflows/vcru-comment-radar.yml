@@ -1,12 +1,7 @@
-name: VC.RU COMMENT RADAR
+name: ARCHIVE - VC.RU COMMENT RADAR
 
-on:
+"on":
   workflow_dispatch:
-  push:
-    paths:
-      - vcru_comment_radar.py
-      - russian_social_review.py
-      - .github/workflows/vcru-comment-radar.yml
 concurrency:
   group: vcru-comment-radar
   cancel-in-progress: false
