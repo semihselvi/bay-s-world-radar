@@ -1,0 +1,167 @@
+name: NorthLab independent tools / one-time live pilot
+on:
+  push:
+    branches: ['isolated/northlab-standalone-tools-20261116']
+permissions:
+  contents: read
+
+jobs:
+  subscope:
+    name: Subscope - independent Reddit signals
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned Subscope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/subscope-source"
+          cd "$RUNNER_TEMP/subscope-source"
+          git init -q
+          git remote add origin https://github.com/dancolta/subscope.git
+          git fetch -q --depth 1 origin cf45ffd8956d0d24bbaaf4eaa5d7f0ecc293cb27
+          git checkout -q --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = cf45ffd8956d0d24bbaaf4eaa5d7f0ecc293cb27
+          python -m pip install -q --disable-pip-version-check .
+      - name: Scan independently without outreach
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess, sys, yaml
+          temp = pathlib.Path(os.environ["RUNNER_TEMP"])
+          src = temp / "subscope-source"
+          cfg = temp / "subscope-config"
+          data = temp / "subscope-data"
+          out = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / "subscope-results"
+          for p in (cfg, data, out): p.mkdir(parents=True, exist_ok=True)
+          subs = ["Turkey", "cyprus", "AskARussian", "Kazakhstan", "Kyrgyzstan"]
+          files = {
+              "subreddits.yml": {"blog_aliases": {}, "subreddits": [
+                  {"name": s, "tier": 1 if i < 2 else 2, "bucket": "operator", "weight": 1.0, "backing_blogs": []}
+                  for i, s in enumerate(subs)]},
+              "keywords.yml": {
+                  "shared": ["need a developer", "looking for developer", "software development", "CRM", "ERP", "automation", "custom software"],
+                  "operator": ["yazılım yaptırmak", "yazılımcı arıyorum", "crm yazılımı", "erp sistemi", "otomasyon yaptırmak", "разработка сайта", "ищу разработчика", "нужна CRM", "нужен сайт", "автоматизация бизнеса", "разработка ПО"],
+                  "builder": [], "per_blog_post": {}},
+              "blog-map.yml": {"blog_posts": []},
+              "brand-anchor.yml": {"brand_anchor": []},
+              "fetch.yml": {"strategy": "search", "since_days": 14},
+          }
+          for name, obj in files.items():
+              (cfg / name).write_text(json.dumps(obj, ensure_ascii=False), encoding="utf-8")
+          weights = yaml.safe_load((src / "config" / "weights.yml").read_text(encoding="utf-8"))
+          weights["daily_output"]["minimum"] = 0
+          weights["freshness_floor"]["enabled"] = False
+          weights["authority_track"]["enabled"] = False
+          (cfg / "weights.yml").write_text(yaml.safe_dump(weights, allow_unicode=True), encoding="utf-8")
+          env = dict(os.environ)
+          env.update(SUBSCOPE_CONFIG=str(cfg), SUBSCOPE_DATA=str(data))
+          for key in list(env):
+              if key.endswith("_API_KEY") or key in ("GITHUB_TOKEN", "GH_TOKEN", "TELEGRAM_BOT_TOKEN", "SLACK_WEBHOOK_URL"): env.pop(key, None)
+          setup = subprocess.run([sys.executable, "-m", "subscope.cli", "setup"], cwd=src, env=env, text=True, capture_output=True, timeout=40)
+          if setup.returncode:
+              print("SETUP_FAIL", setup.stderr[-1200:])
+              sys.exit(2)
+          cmd = [sys.executable, "-m", "subscope.cli", "fetch-score", "--candidates", "--no-enrich", "--no-slack", "--no-cool", "--search", "--since-days", "14", "--max-requests", "6", "--limit-per-sub", "15"]
+          try:
+              p = subprocess.run(cmd, cwd=src, env=env, text=True, capture_output=True, timeout=390)
+          except subprocess.TimeoutExpired:
+              print("SUBSCOPE_TIMEOUT")
+              sys.exit(3)
+          (out / "raw.json").write_text(p.stdout, encoding="utf-8")
+          (out / "stderr.txt").write_text(p.stderr[-10000:], encoding="utf-8")
+          if p.returncode:
+              print("SCAN_FAIL", p.returncode, p.stderr[-1200:])
+              sys.exit(4)
+          try: result = json.loads(p.stdout)
+          except json.JSONDecodeError:
+              print("INVALID_JSON", p.stdout[-500:])
+              sys.exit(5)
+          candidates = result.get("candidates", [])
+          summary = {"status": result.get("status"), "fetched": result.get("fetched", 0),
+                     "unverified_candidates": len(candidates), "verified_buyers": 0,
+                     "samples": [{"title": x.get("title"), "url": x.get("url"), "sub": x.get("sub")} for x in candidates[:8]],
+                     "note": "No company or buying decision verified; candidates are not customers"}
+          (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+          print("SUBSCOPE_RESULT", json.dumps(summary, ensure_ascii=False))
+          sys.exit(0 if result.get("status") == "ok" else 6)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-subscope-results
+          path: subscope-results/summary.json
+          retention-days: 7
+
+  openleads:
+    name: OpenLeads - independent private-sector prospects
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned OpenLeads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/openleads-source"
+          cd "$RUNNER_TEMP/openleads-source"
+          git init -q
+          git remote add origin https://github.com/Samyrrrrrr990/openleads.git
+          git fetch -q --depth 1 origin 4ad39703cc4de29b0feddce58f782c00e7629852
+          git checkout -q --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = 4ad39703cc4de29b0feddce58f782c00e7629852
+          python -m pip install -q --disable-pip-version-check .
+      - name: Find prospects independently without sending messages
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv, json, os, pathlib, subprocess, sys
+          out = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / "openleads-results"
+          out.mkdir(parents=True, exist_ok=True)
+          env = dict(os.environ)
+          env["OPENLEADS_HOME"] = str(out / "private-state")
+          for key in list(env):
+              if key.endswith("_API_KEY") or key in ("GITHUB_TOKEN", "GH_TOKEN", "TELEGRAM_BOT_TOKEN", "SLACK_WEBHOOK_URL"): env.pop(key, None)
+          markets = [
+              ("tr", "Turkey", "private logistics and retail businesses"),
+              ("kktc", "Northern Cyprus", "private tourism and property management businesses"),
+              ("ru", "Russia", "private logistics and retail businesses"),
+              ("kz", "Kazakhstan", "private logistics and retail businesses"),
+              ("kg", "Kyrgyzstan", "private logistics and retail businesses"),
+          ]
+          results = []
+          for code, country, segment in markets:
+              dest = out / (code + ".csv")
+              report = out / (code + ".report.json")
+              cmd = [sys.executable, "-m", "openleads.cli", "find", segment, "--location", country, "--count", "5", "--budget", "30", "--max-companies", "12", "--out", str(dest), "--report", str(report), "--explain"]
+              try:
+                  p = subprocess.run(cmd, env=env, text=True, capture_output=True, timeout=90)
+                  (out / (code + ".log")).write_text((p.stdout + "\n" + p.stderr)[-8000:], encoding="utf-8")
+                  if dest.exists():
+                      with dest.open(encoding="utf-8-sig", newline="") as f: leads = list(csv.DictReader(f))
+                  else: leads = []
+                  row = {"country": country, "status": "ok" if p.returncode == 0 else "error",
+                         "prospects": len(leads), "verified_buyers": 0,
+                         "samples": [{"company": x.get("Organization Name") or x.get("Company") or "", "website": x.get("Website") or ""} for x in leads[:4]],
+                         "error": p.stderr[-500:] if p.returncode else ""}
+              except subprocess.TimeoutExpired:
+                  row = {"country": country, "status": "timeout", "prospects": 0, "verified_buyers": 0}
+              results.append(row)
+              print("MARKET_RESULT", json.dumps(row, ensure_ascii=False), flush=True)
+          summary = {"results": results, "total_prospects": sum(x["prospects"] for x in results),
+                     "verified_buyers": 0, "note": "Companies are not verified buyers; no messages sent"}
+          (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+          print("OPENLEADS_RESULT", json.dumps(summary, ensure_ascii=False))
+          sys.exit(0 if any(x["status"] == "ok" for x in results) else 7)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-openleads-results
+          path: openleads-results/summary.json
+          retention-days: 7
